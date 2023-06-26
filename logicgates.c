@@ -1764,6 +1764,5 @@ int main(int argc, char *argv[]) {
         while ((double) (end - start) / CLOCKS_PER_SEC < (1 / (double) tps)) {
             end = clock();
         }
-        list_print(turtools.keyPressed);
     }
 }
