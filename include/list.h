@@ -201,11 +201,11 @@ unitype list_delete(list_t *list, int index) { // deletes the item at list[index
     list -> length -= 1;
     list -> type[list -> length] = (char) 0;
     list -> data[list -> length] = (unitype) 0;
-    if (list -> length <= list -> realLength / 2) {
-        list -> realLength /= 2;
-        list -> type = realloc(list -> type, list -> realLength);
-        list -> data = realloc(list -> data, list -> realLength * sizeof(unitype));
-    }
+    // if (list -> length <= list -> realLength / 2) {
+    //     list -> realLength /= 2;
+    //     list -> type = realloc(list -> type, list -> realLength);
+    //     list -> data = realloc(list -> data, list -> realLength * sizeof(unitype));
+    // }
     return ret;
 }
 
