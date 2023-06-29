@@ -1626,6 +1626,7 @@ int main(int argc, char *argv[]) {
     if (!glfwInit()) {
         return -1;
     }
+    glfwWindowHint(GLFW_SAMPLES, 4); // MSAA (Anti-Aliasing) with 4 samples (must be done before window is created (?))
 
     /* Create a windowed mode window and its OpenGL context */
     window = glfwCreateWindow(960, 720, "Logic Gates", NULL, NULL);

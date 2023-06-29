@@ -343,34 +343,54 @@ void turtleGoto(double x, double y) { // moves the turtle to a coordinate
         }
     }
 }
-void turtleCircle(double x, double y, double rad, double r, double g, double b, double a, double xfact, double yfact, double prez) { // draws a circle at the specified x and y (coordinates)
+int turtleCircle(float *buffer, int start, double x, double y, double rad, double r, double g, double b, double a, double xfact, double yfact, double prez) { // draws a circle at the specified x and y (coordinates)
     int indprez = (int) prez * 6;
-    float circle[indprez];
     for (int i = 0; i < indprez; i += 6) {
-        circle[i] = (x + rad * sin(1.0 / 3 * i * M_PI / prez)) * xfact;
-        circle[i + 1] = (y + rad * cos(1.0 / 3 * i * M_PI / prez)) * yfact;
-        circle[i + 2] = r;
-        circle[i + 3] = g;
-        circle[i + 4] = b;
-        circle[i + 5] = a;
+        buffer[i + start] = (x + rad * sin(1.0 / 3 * i * M_PI / prez)) * xfact;
+        buffer[i + 1 + start] = (y + rad * cos(1.0 / 3 * i * M_PI / prez)) * yfact;
+        buffer[i + 2 + start] = r;
+        buffer[i + 3 + start] = g;
+        buffer[i + 4 + start] = b;
+        buffer[i + 5 + start] = a;
     }
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * indprez, circle, GL_DYNAMIC_DRAW);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, (int) prez);
+    return start + indprez;
 }
 void turtleSquare(double x1, double y1, double x2, double y2, double r, double g, double b, double a, double xfact, double yfact) { // draws a square
-    float square[24] = {x1 * xfact, y1 * yfact, r, g, b, a, x2 * xfact, y1 * yfact, r, g, b, a, x2 * xfact, y2 * yfact, r, g, b, a, x1 * xfact, y2 * yfact, r, g, b, a};
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 24, square, GL_DYNAMIC_DRAW);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    // float square[24] = {x1 * xfact, y1 * yfact, r, g, b, a, x2 * xfact, y1 * yfact, r, g, b, a, x2 * xfact, y2 * yfact, r, g, b, a, x1 * xfact, y2 * yfact, r, g, b, a};
+    // glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 24, square, GL_STATIC_DRAW);
+    // glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
 void turtleTriangle(double x1, double y1, double x2, double y2, double x3, double y3, double r, double g, double b, double a, double xfact, double yfact) { // draws a triangle
-    float triangle[18] = {x1 * xfact, y1 * yfact, r, g, b, a, x2 * xfact, y2 * yfact, r, g, b, a, x3 * xfact, y3 * yfact, r, g, b, a};
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 18, triangle, GL_DYNAMIC_DRAW);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    // float triangle[18] = {x1 * xfact, y1 * yfact, r, g, b, a, x2 * xfact, y2 * yfact, r, g, b, a, x3 * xfact, y3 * yfact, r, g, b, a};
+    // glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 18, triangle, GL_STATIC_DRAW);
+    // glDrawArrays(GL_TRIANGLES, 0, 3);
 }
-void turtleQuad(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4, double r, double g, double b, double a, double xfact, double yfact) { // draws a quadrilateral
-    float quad[24] = {x1 * xfact, y1 * yfact, r, g, b, a, x2 * xfact, y2 * yfact, r, g, b, a, x3 * xfact, y3 * yfact, r, g, b, a, x4 * xfact, y4 * yfact, r, g, b, a};
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 24, quad, GL_DYNAMIC_DRAW);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+int turtleQuad(float *buffer, int start, double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4, double r, double g, double b, double a, double xfact, double yfact) { // draws a quadrilateral
+    buffer[start] = x1 * xfact;
+    buffer[start + 1] = y1 * yfact;
+    buffer[start + 2] = r;
+    buffer[start + 3] = g;
+    buffer[start + 4] = b;
+    buffer[start + 5] = a;
+    buffer[start + 6] = x2 * xfact;
+    buffer[start + 7] = y2 * yfact;
+    buffer[start + 8] = r;
+    buffer[start + 9] = g;
+    buffer[start + 10] = b;
+    buffer[start + 11] = a;
+    buffer[start + 12] = x3 * xfact;
+    buffer[start + 13] = y3 * yfact;
+    buffer[start + 14] = r;
+    buffer[start + 15] = g;
+    buffer[start + 16] = b;
+    buffer[start + 17] = a;
+    buffer[start + 18] = x4 * xfact;
+    buffer[start + 19] = y4 * yfact;
+    buffer[start + 20] = r;
+    buffer[start + 21] = g;
+    buffer[start + 22] = b;
+    buffer[start + 23] = a;
+    return start + 24;
 }
 void turtleUpdate() { // draws the turtle's path on the screen
     char changed = 0;
@@ -410,6 +430,8 @@ void turtleUpdate() { // draws the turtle's path on the screen
         double lastSize = -1;
         double lastPrez = -1;
         double precomputedLog = 5;
+        float *masterBuffer = malloc(sizeof(float) * 6 * len);
+        int start = 0;
         glClear(GL_COLOR_BUFFER_BIT);
         for (int i = 0; i < len; i += 9) {
             if (renType[i] == 'd') {
@@ -418,7 +440,7 @@ void turtleUpdate() { // draws the turtle's path on the screen
                         precomputedLog = ren[i + 8].d * log(1 + ren[i + 2].d);
                     lastSize = ren[i + 2].d;
                     lastPrez = ren[i + 8].d;
-                    turtleCircle(ren[i].d, ren[i + 1].d, ren[i + 2].d, ren[i + 3].d, ren[i + 4].d, ren[i + 5].d, ren[i + 6].d, xfact, yfact, precomputedLog);
+                    start = turtleCircle(masterBuffer, start, ren[i].d, ren[i + 1].d, ren[i + 2].d, ren[i + 3].d, ren[i + 4].d, ren[i + 5].d, ren[i + 6].d, xfact, yfact, precomputedLog);
                 }
                 if (ren[i + 7].h == 1)
                     turtleSquare(ren[i].d - ren[i + 2].d, ren[i + 1].d - ren[i + 2].d, ren[i].d + ren[i + 2].d, ren[i + 1].d + ren[i + 2].d, ren[i + 3].d, ren[i + 4].d, ren[i + 5].d, ren[i + 6].d, xfact, yfact);
@@ -428,7 +450,7 @@ void turtleUpdate() { // draws the turtle's path on the screen
                     double dir = atan((ren[i + 9].d - ren[i].d) / (ren[i + 1].d - ren[i + 10].d));
                     double sinn = sin(dir + M_PI / 2);
                     double coss = cos(dir + M_PI / 2);
-                    turtleQuad(ren[i].d + ren[i + 2].d * sinn, ren[i + 1].d - ren[i + 2].d * coss, ren[i + 9].d + ren[i + 2].d * sinn, ren[i + 10].d - ren[i + 2].d * coss, ren[i + 9].d - ren[i + 2].d * sinn, ren[i + 10].d + ren[i + 2].d * coss, ren[i].d - ren[i + 2].d * sinn, ren[i + 1].d + ren[i + 2].d * coss, ren[i + 3].d, ren[i + 4].d, ren[i + 5].d, ren[i + 6].d, xfact, yfact);
+                    start = turtleQuad(masterBuffer, start, ren[i].d + ren[i + 2].d * sinn, ren[i + 1].d - ren[i + 2].d * coss, ren[i + 9].d + ren[i + 2].d * sinn, ren[i + 10].d - ren[i + 2].d * coss, ren[i + 9].d - ren[i + 2].d * sinn, ren[i + 10].d + ren[i + 2].d * coss, ren[i].d - ren[i + 2].d * sinn, ren[i + 1].d + ren[i + 2].d * coss, ren[i + 3].d, ren[i + 4].d, ren[i + 5].d, ren[i + 6].d, xfact, yfact);
                     if (ren[i + 7].h == 4 && i + 18 < len && renType[i + 18] == 'd') {
                         double dir2 = atan((ren[i + 18].d - ren[i + 9].d) / (ren[i + 10].d - ren[i + 19].d));
                         double sinn2 = sin(dir2 + M_PI / 2);
@@ -442,9 +464,12 @@ void turtleUpdate() { // draws the turtle's path on the screen
                             precomputedLog = ren[i + 8].d * log(1 + ren[i + 2].d);
                         lastSize = ren[i + 2].d;
                         lastPrez = ren[i + 8].d;
-                        turtleCircle(ren[i].d, ren[i + 1].d, ren[i + 2].d, ren[i + 3].d, ren[i + 4].d, ren[i + 5].d, ren[i + 6].d, xfact, yfact, precomputedLog);
+                        start = turtleCircle(masterBuffer, start, ren[i].d, ren[i + 1].d, ren[i + 2].d, ren[i + 3].d, ren[i + 4].d, ren[i + 5].d, ren[i + 6].d, xfact, yfact, precomputedLog);
                     }
                 }
+                glBufferData(GL_ARRAY_BUFFER, sizeof(float) * start, masterBuffer, GL_DYNAMIC_DRAW);
+                glDrawArrays(GL_TRIANGLE_FAN, 0, start / 6);
+                start = 0;
             }
         }
         glfwSwapBuffers(turtools.window);
