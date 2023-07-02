@@ -253,16 +253,20 @@ void turtlePenDown() {
         turtools.pen = 1;
         char changed = 0;
         int len = turtools.penPos -> length;
-        unitype *ren = turtools.penPos -> data;
-        if (ren[len - 9].d != turtools.penshape) {changed = 1;}
-        if (ren[len - 8].d != turtools.x) {changed = 1;}
-        if (ren[len - 7].d != turtools.y) {changed = 1;}
-        if (ren[len - 6].d != turtools.pensize) {changed = 1;}
-        if (ren[len - 5].d != turtools.penr) {changed = 1;}
-        if (ren[len - 4].d != turtools.peng) {changed = 1;}
-        if (ren[len - 3].d != turtools.penb) {changed = 1;}
-        if (ren[len - 2].h != turtools.pena) {changed = 1;}
-        if (ren[len - 1].d != turtools.penshape) {changed = 1;}
+        if (len > 0) {
+            unitype *ren = turtools.penPos -> data;
+            if (ren[len - 9].d != turtools.x) {changed = 1;}
+            if (ren[len - 8].d != turtools.y) {changed = 1;}
+            if (ren[len - 7].d != turtools.pensize) {changed = 1;}
+            if (ren[len - 6].d != turtools.penr) {changed = 1;}
+            if (ren[len - 5].d != turtools.peng) {changed = 1;}
+            if (ren[len - 4].d != turtools.penb) {changed = 1;}
+            if (ren[len - 3].d != turtools.pena) {changed = 1;}
+            if (ren[len - 2].h != turtools.penshape) {changed = 1;}
+            if (ren[len - 1].d != turtools.circleprez) {changed = 1;}
+        } else {
+            changed = 1;
+        }
         if (changed == 1) {
             list_append(turtools.penPos, (unitype) turtools.x, 'd');
             list_append(turtools.penPos, (unitype) turtools.y, 'd');
@@ -319,16 +323,20 @@ void turtleGoto(double x, double y) { // moves the turtle to a coordinate
         if (turtools.pen == 1) {
             char changed = 0;
             int len = turtools.penPos -> length;
-            unitype *ren = turtools.penPos -> data;
-            if (ren[len - 9].d != turtools.penshape) {changed = 1;}
-            if (ren[len - 8].d != turtools.x) {changed = 1;}
-            if (ren[len - 7].d != turtools.y) {changed = 1;}
-            if (ren[len - 6].d != turtools.pensize) {changed = 1;}
-            if (ren[len - 5].d != turtools.penr) {changed = 1;}
-            if (ren[len - 4].d != turtools.peng) {changed = 1;}
-            if (ren[len - 3].d != turtools.penb) {changed = 1;}
-            if (ren[len - 2].h != turtools.pena) {changed = 1;}
-            if (ren[len - 1].d != turtools.penshape) {changed = 1;}
+            if (len > 0) {
+                unitype *ren = turtools.penPos -> data;
+                if (ren[len - 9].d != turtools.x) {changed = 1;}
+                if (ren[len - 8].d != turtools.y) {changed = 1;}
+                if (ren[len - 7].d != turtools.pensize) {changed = 1;}
+                if (ren[len - 6].d != turtools.penr) {changed = 1;}
+                if (ren[len - 5].d != turtools.peng) {changed = 1;}
+                if (ren[len - 4].d != turtools.penb) {changed = 1;}
+                if (ren[len - 3].d != turtools.pena) {changed = 1;}
+                if (ren[len - 2].h != turtools.penshape) {changed = 1;}
+                if (ren[len - 1].d != turtools.circleprez) {changed = 1;}
+            } else {
+                changed = 1;
+            }
             if (changed == 1) {
                 list_append(turtools.penPos, (unitype) x, 'd');
                 list_append(turtools.penPos, (unitype) y, 'd');
