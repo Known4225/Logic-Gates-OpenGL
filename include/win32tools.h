@@ -46,7 +46,7 @@ typedef struct {
 win32FileDialogObject win32FileDialog;
 win32ClipboardObject win32Clipboard;
 
-int win32toolsInit() {
+int win32ToolsInit() {
     /* initialise file dialog */
     strcpy(win32FileDialog.filename, "null");
     win32FileDialog.openOrSave = 0; // open by default

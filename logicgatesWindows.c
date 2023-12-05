@@ -1,6 +1,6 @@
 #include "include/turtle.h"
 #include "include/ribbon.h"
-#include "include/win32tools.h"
+#include "include/win32Tools.h"
 #include <time.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "include/stb_image.h" // THANK YOU https://github.com/nothings/stb
@@ -777,6 +777,7 @@ void deleteComp(logicgates *selfp, int index) { // deletes a component
 }
 void hlgcompset(logicgates *selfp) { // sets hlgcomp to whatever component the mouse is hovering over
     logicgates self = *selfp;
+    self.globalsize *= 0.75; // resizing
     self.hlgcomp = 0;
     int len = self.components -> length;
     for (int i = 1; i < len; i++) {
@@ -784,6 +785,7 @@ void hlgcompset(logicgates *selfp) { // sets hlgcomp to whatever component the m
             self.hlgcomp = i;
         }
     }
+    self.globalsize /= 0.75;
     *selfp = self;
 }
 void rotateSelected(logicgates *selfp, double degrees) { // rotates selected components by degrees
@@ -1129,12 +1131,12 @@ void wireIO(logicgates *selfp, int index1, int index2) { // this script actually
             int tempAng3 = self.wiring -> data[index2].i * 3;
             compareAng(&self, index1, index2, self.inpComp -> data[self.wiring -> data[index2].i * 3 - 1].i, 
             self.inpComp -> data[self.wiring -> data[index2].i * 3 - 2].i, 
-            (self.positions -> data[tempAng - 2].d + self.screenX + sin(self.positions -> data[tempAng].d / 57.2958) * 16.5) * self.globalsize, 
-            (self.positions -> data[tempAng - 1].d + self.screenY + cos(self.positions -> data[tempAng].d / 57.2958) * 16.5) * self.globalsize, 
-            (self.positions -> data[tempAng2 - 2].d + self.screenX + sin(self.positions -> data[tempAng2].d / 57.2958) * 16.5) * self.globalsize, 
-            (self.positions -> data[tempAng2 - 1].d + self.screenY + cos(self.positions -> data[tempAng2].d / 57.2958) * 16.5) * self.globalsize, 
-            (self.positions -> data[tempAng3 - 2].d + self.screenX - sin(self.positions -> data[tempAng3].d / 57.2958) * 16.5) * self.globalsize, 
-            (self.positions -> data[tempAng3 - 1].d + self.screenY - cos(self.positions -> data[tempAng3].d / 57.2958) * 16.5) * self.globalsize, 
+            (self.positions -> data[tempAng - 2].d + self.screenX + sin(self.positions -> data[tempAng].d / 57.2958) * 22.5) * self.globalsize, 
+            (self.positions -> data[tempAng - 1].d + self.screenY + cos(self.positions -> data[tempAng].d / 57.2958) * 22.5) * self.globalsize, 
+            (self.positions -> data[tempAng2 - 2].d + self.screenX + sin(self.positions -> data[tempAng2].d / 57.2958) * 22.5) * self.globalsize, 
+            (self.positions -> data[tempAng2 - 1].d + self.screenY + cos(self.positions -> data[tempAng2].d / 57.2958) * 22.5) * self.globalsize, 
+            (self.positions -> data[tempAng3 - 2].d + self.screenX - sin(self.positions -> data[tempAng3].d / 57.2958) * 22.5) * self.globalsize, 
+            (self.positions -> data[tempAng3 - 1].d + self.screenY - cos(self.positions -> data[tempAng3].d / 57.2958) * 22.5) * self.globalsize, 
             self.positions -> data[tempAng3].d);
         }
     } else {
@@ -1149,8 +1151,8 @@ void renderComp(logicgates *selfp) { // this function renders all the components
     list_append(self.selectOb, (unitype) "null", 's');
     int len = self.components -> length;
     for (int i = 1; i < len; i++) {
-        double renderX = (self.positions -> data[i * 3 - 2].d + self.screenX) * self.globalsize;
-        double renderY = (self.positions -> data[i * 3 - 1].d + self.screenY) * self.globalsize;
+        double renderX = (self.positions -> data[i * 3 - 2].d + self.screenX) * self.globalsize * 0.75;
+        double renderY = (self.positions -> data[i * 3 - 1].d + self.screenY) * self.globalsize * 0.75;
         if (renderX + 15 * self.globalsize > -240 && renderX + -15 * self.globalsize < 240 && renderY + 15 * self.globalsize > -180 && renderY + -15 * self.globalsize < 180) {
             if (list_count(self.selected, (unitype) i, 'i') > 0 || (renderX + 12 * self.globalsize > self.sxmin && renderX + -12 * self.globalsize < self.sxmax && renderY + 12 * self.globalsize > self.symin && renderY + -12 * self.globalsize < self.symax && self.selecting == 1)) {
                     list_append(self.selectOb, (unitype) i, 'i');
@@ -1198,6 +1200,7 @@ void renderComp(logicgates *selfp) { // this function renders all the components
 }
 void renderWire(logicgates *selfp, double size) { // this function renders all the wiring in the window (a bit buggy if the components are outside the window, it doesn't do line intercepts and is likely bounded by total screen size but if I were to do bound intercepts I would do it in the turtle abstration)
     logicgates self = *selfp;
+    self.globalsize *= 0.75; // um just resizing no big deal
     turtlePenSize(size * self.scaling);
     int len = self.wiring -> length - 1;
     for (int i = 1; i < len; i += 3) {
@@ -1217,23 +1220,24 @@ void renderWire(logicgates *selfp, double size) { // this function renders all t
                 turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
         }
         turtlePenDown();
-        wireTXS += sin((self.positions -> data[self.wiring -> data[i].i * 3].d) / 57.2958) * 16.875 * self.globalsize;
-        wireTYS += cos((self.positions -> data[self.wiring -> data[i].i * 3].d) / 57.2958) * 16.875 * self.globalsize;
+        wireTXS += sin((self.positions -> data[self.wiring -> data[i].i * 3].d) / 57.2958) * 22.5 * self.globalsize;
+        wireTYS += cos((self.positions -> data[self.wiring -> data[i].i * 3].d) / 57.2958) * 22.5 * self.globalsize;
         turtleGoto(wireTXS, wireTYS);
         double wireRot = (self.positions -> data[self.wiring -> data[i + 1].i * 3].d) / 57.2958; // direction of destination component (radians)
-        double wireTXE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 2].d + self.screenX) * self.globalsize - (sin(wireRot) * 16.875 * self.globalsize + self.wxOffE); // x position of destination component
-        double wireTYE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 1].d + self.screenY) * self.globalsize - (cos(wireRot) * 16.875 * self.globalsize + self.wyOffE); // y position of destination component
+        double wireTXE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 2].d + self.screenX) * self.globalsize - (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE); // x position of destination component
+        double wireTYE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 1].d + self.screenY) * self.globalsize - (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE); // y position of destination component
         double distance = (wireTXE - wireTXS) * sin(wireRot) + (wireTYE - wireTYS) * cos(wireRot);
         if (self.wireMode == 0)
             turtleGoto(wireTXS + distance * sin(wireRot), wireTYS + distance * cos(wireRot));
         turtleGoto(wireTXE, wireTYE);
-        distance = (sin(wireRot) * 16.875 * self.globalsize + self.wxOffE) * sin(wireRot) + (cos(wireRot) * 16.875 * self.globalsize + self.wyOffE) * cos(wireRot);
+        distance = (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE) * sin(wireRot) + (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE) * cos(wireRot);
         if (self.wireMode == 0)
             turtleGoto(wireTXE + distance * sin(wireRot), wireTYE + distance * cos(wireRot));
-        turtleGoto(wireTXE + (sin(wireRot) * 16.875 * self.globalsize + self.wxOffE), wireTYE + (cos(wireRot) * 16.875 * self.globalsize + self.wyOffE));
+        turtleGoto(wireTXE + (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE), wireTYE + (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE));
         turtlePenUp();
         turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
     }
+    self.globalsize /= 0.75;
     *selfp = self;
 }
 void renderSidebar(logicgates *selfp, char side) { // this function draws the sidebar, but really its never on the side it's a bottom or top bar
@@ -1324,6 +1328,7 @@ void renderSidebar(logicgates *selfp, char side) { // this function draws the si
 }
 void mouseTick(logicgates *selfp) { // all the functionality for the mouse is handled in this beast of a function, it's really messy and super hard to understand
     logicgates self = *selfp;
+    self.globalsize *= 0.75; // resizing
     if (turtleMouseDown()) {
         if (!(self.keys[0])) {
             self.keys[0] = 1;
@@ -1489,7 +1494,7 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                     turtlePenColor(self.themeColors[4 + self.theme], self.themeColors[5 + self.theme], self.themeColors[6 + self.theme]);
                 else
                     turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
-                turtlePenSize(self.globalsize * self.scaling);
+                turtlePenSize(self.globalsize * self.scaling / 0.75);
                 if (list_count(self.selected, (unitype) self.wiringStart, 'i') > 0 && self.selecting > 2) {
                     int len = self.selected -> length;
                     for (int i = 1; i < len; i++) {
@@ -1703,6 +1708,7 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                 self.keys[0] = 0;
         }
     }
+    self.globalsize /= 0.75;
     *selfp = self;
 }
 void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is handled here
@@ -2057,8 +2063,8 @@ int main(int argc, char *argv[]) {
     /* initialise ribbon */
     ribbonInit(window, "include/ribbonConfig.txt");
 
-    /* initialise win32tools */
-    win32toolsInit();
+    /* initialise win32Tools */
+    win32ToolsInit();
     win32FileDialogAddExtension("txt"); // add txt to extension restrictions
 
     int tps = 60; // ticks per second (locked to fps in this case)
