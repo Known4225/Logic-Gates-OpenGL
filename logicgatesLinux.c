@@ -2,6 +2,8 @@
 #include "include/ribbon.h"
 #include "include/zenityFileDialog.h"
 #include <time.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "include/stb_image.h" // THANK YOU https://github.com/nothings/stb
 
 typedef struct { // all logicgates variables (shared state) are defined here
     double globalsize;
@@ -2047,6 +2049,12 @@ int main(int argc, char *argv[]) {
     glfwMakeContextCurrent(window);
     glfwSetWindowSizeLimits(window, GLFW_DONT_CARE, GLFW_DONT_CARE, 960, 720);
     gladLoadGL();
+    /* load logo */
+    GLFWimage icon;
+    int iconChannels;
+    unsigned char *iconPixels = stbi_load("include/LogicGatesIcon.jpg", &icon.width, &icon.height, &iconChannels, 4); // 4 color channels for RGBA
+    icon.pixels = iconPixels;
+    glfwSetWindowIcon(window, 1, &icon);
 
     /* initialize turtle */
     turtleInit(window, -240, -180, 240, 180);
