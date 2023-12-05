@@ -1,0 +1,11 @@
+POWER 0 0 90 0 1 0 1 0 0 
+
+comp, posxya, inputs, inputHandles
+
+inputs are either 0 or 1
+inputHandles start with 1 or 2, depending on how many inputs the component can take
+the remaining two values are the indices in the component list that correspond to the wire inputs for the up to two inputs
+
+so if component 1 is wired to component 2 (a not gate) then component 2's inputHandles would be 1 1 0
+
+the second input of POWER is set to 1 if the POWER block is on, the output is only set to 1 if it is wired to something (?)
