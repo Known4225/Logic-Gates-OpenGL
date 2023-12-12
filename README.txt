@@ -2,18 +2,17 @@ Logic Gates extra branch is a sequal to my logic gates project. This adds GUI sa
 
 Compile (windows 64 bit):
 gcc logicgatesWindows.c -L./Windows -lglfw3 -lopengl32 -lgdi32 -lglad -lole32 -luuid -O3 -o logicgatesWindows.exe
+Then run logicgatesWindows.exe
 
 Compile (linux):
 gcc logicgatesLinux.c -L./Linux -lglfw3 -ldl -lm -lX11 -lglad -lGL -lGLU -lpthread -O3 -o logicgatesLinux.o
-
-Then run logicgates.exe
-
-I've already included the exe and object files as well, so you don't need to compile if they already work (no guarentees though, this stuff is very finicky)
+Then run ./logicgatesLinux.o
 
 To load a file, type:
 logicgates.exe {filename.txt}
 in the terminal (with no brackets)
 I've included a seven segment display as well as a 4 bit Arithmetic Logic Unit
+You can also load files from the GUI menu
 
 Keybinds:
 click and drag - Place components, move components, or move screen
