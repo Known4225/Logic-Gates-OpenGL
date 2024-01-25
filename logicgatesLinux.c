@@ -573,7 +573,7 @@ void copySelected(logicgates *selfp) { // copies and pastes selected components
         list_append(self.inpComp, self.inpComp -> data[self.selected -> data[i].i * 3 - 2], 'i');
         if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') > 0) {
             list_append(self.inpComp, (unitype) (l + self.inpComp -> data[self.selected -> data[i].i * 3 - 1].i), 'i');
-            if (list_count(self.inpComp, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0)
+            if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0)
                 list_append(self.inpComp, (unitype) (l + self.inpComp -> data[self.selected -> data[i].i * 3].i), 'i');
             else
                 list_append(self.inpComp, (unitype) 0, 'i');
@@ -2042,7 +2042,7 @@ int main(int argc, char *argv[]) {
     glfwWindowHint(GLFW_SAMPLES, 4); // MSAA (Anti-Aliasing) with 4 samples (must be done before window is created (?))
 
     /* Create a windowed mode window and its OpenGL context */
-    window = glfwCreateWindow(960, 720, "Logic Gates", NULL, NULL);
+    window = glfwCreateWindow(900, 675, "Logic Gates", NULL, NULL);
     if (!window) {
         glfwTerminate();
     }
