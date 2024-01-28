@@ -554,7 +554,7 @@ void copySelected(logicgates *selfp) { // copies and pastes selected components
     self.selecting = 3;
     double j = 0;
     double k = 0;
-    int l = self.components -> length - self.selected -> data[1].i;
+    int l = self.components -> length;
     int m1 = self.selected -> length;
     for (int i = 1; i < m1; i++) {
         j += self.positions -> data[self.selected -> data[i].i * 3 - 2].d;
@@ -572,16 +572,18 @@ void copySelected(logicgates *selfp) { // copies and pastes selected components
         list_append(self.io, (unitype) 0, 'i');
         list_append(self.inpComp, self.inpComp -> data[self.selected -> data[i].i * 3 - 2], 'i');
         if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') > 0) {
-            list_append(self.inpComp, (unitype) (l + self.inpComp -> data[self.selected -> data[i].i * 3 - 1].i), 'i');
-            if (list_count(self.inpComp, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0)
-                list_append(self.inpComp, (unitype) (l + self.inpComp -> data[self.selected -> data[i].i * 3].i), 'i');
-            else
+            list_append(self.inpComp, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') - 1), 'i');
+            if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
+                list_append(self.inpComp, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') - 1), 'i');
+            } else {
                 list_append(self.inpComp, (unitype) 0, 'i');
+            }
         } else {
-            if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0)
-                list_append(self.inpComp, (unitype) (l + self.inpComp -> data[self.selected -> data[i].i * 3].i), 'i');
-            else
+            if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
+                list_append(self.inpComp, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') - 1), 'i');
+            } else {
                 list_append(self.inpComp, (unitype) 0, 'i');
+            }
             list_append(self.inpComp, (unitype) 0, 'i');
         }
     }
