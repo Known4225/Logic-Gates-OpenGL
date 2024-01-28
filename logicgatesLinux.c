@@ -1943,8 +1943,8 @@ void scrollTick(logicgates *selfp) { // all the scroll wheel functionality is ha
                 self.rotateCooldown = 0;
             }
         } else {
-            self.screenX -= (turtle.mouseX * (-1 / self.scrollSpeed + 1)) / self.globalsize;
-            self.screenY -= (turtle.mouseY * (-1 / self.scrollSpeed + 1)) / self.globalsize;
+            self.screenX -= (turtle.mouseX * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
+            self.screenY -= (turtle.mouseY * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
             self.globalsize *= self.scrollSpeed;
         }
     }
@@ -1968,8 +1968,8 @@ void scrollTick(logicgates *selfp) { // all the scroll wheel functionality is ha
             }
         } else {
             self.globalsize /= self.scrollSpeed;
-            self.screenX += (turtle.mouseX * (-1 / self.scrollSpeed + 1)) / self.globalsize;
-            self.screenY += (turtle.mouseY * (-1 / self.scrollSpeed + 1)) / self.globalsize;
+            self.screenX += (turtle.mouseX * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
+            self.screenY += (turtle.mouseY * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
         }
     }
     if (self.mw == 0) {
