@@ -1,17 +1,17 @@
 # Logic Gates
 
 ### Compile (windows 64 bit):
-gcc logicgatesWindows.c -L./Windows -lglfw3 -lopengl32 -lgdi32 -lglad -lole32 -luuid -O3 -o logicgatesWindows.exe
+gcc logicgatesWindows.c -L./Windows -lglfw3 -lopengl32 -lgdi32 -lglad -lole32 -luuid -O3 -o logicgatesWindows.exe\
 Then run logicgatesWindows.exe
 
 ### Compile (linux):
-gcc logicgatesLinux.c -L./Linux -lglfw3 -ldl -lm -lX11 -lglad -lGL -lGLU -lpthread -O3 -o logicgatesLinux.o
+gcc logicgatesLinux.c -L./Linux -lglfw3 -ldl -lm -lX11 -lglad -lGL -lGLU -lpthread -O3 -o logicgatesLinux.o\
 Then run ./logicgatesLinux.o
 
-To load a file, type:
-logicgates.exe {filename.txt}
-in the terminal (with no brackets)
-I've included some demo projects in the "Demos" folder
+To load a file, type:\
+logicgates.exe {filename.txt}\
+in the terminal (with no brackets)\
+I've included some demo projects in the "Demos" folder\
 Files can also be loaded in via the GUI menu
 
 This application is designed to be usable with just a mouse, but there are
@@ -42,4 +42,4 @@ k - export to file\
 h - toggle sidebar\
 w - toggle wireMode\
 t - toggle theme (dark/light)\
-z - snap to grid\
+z - snap to grid
