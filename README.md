@@ -1,20 +1,23 @@
-Logic Gates extra branch is a sequal to my logic gates project. This adds GUI saving and loading functionality as well as improvements to wire rendering. I didn't merge this with the original since there needs to be different source code for linux vs windows (windows API vs zenity file explorer). I've also written tools for interfacing with these systems.
+### Logic Gates
 
-Compile (windows 64 bit):
+# Compile (windows 64 bit):
 gcc logicgatesWindows.c -L./Windows -lglfw3 -lopengl32 -lgdi32 -lglad -lole32 -luuid -O3 -o logicgatesWindows.exe
 Then run logicgatesWindows.exe
 
-Compile (linux):
+# Compile (linux):
 gcc logicgatesLinux.c -L./Linux -lglfw3 -ldl -lm -lX11 -lglad -lGL -lGLU -lpthread -O3 -o logicgatesLinux.o
 Then run ./logicgatesLinux.o
 
 To load a file, type:
 logicgates.exe {filename.txt}
 in the terminal (with no brackets)
-I've included a seven segment display as well as a 4 bit Arithmetic Logic Unit
-You can also load files from the GUI menu
+I've included some demo projects in the "Demos" folder
+Files can also be loaded in via the GUI menu
 
-Keybinds:
+This application is designed to be usable with just a mouse, but there are
+keybind shortcuts to make building circuits faster.
+
+## Keybinds:
 click and drag - Place components, move components, or move screen
 click on a POWER component to toggle it on/off
 space + click + drag - create wire
