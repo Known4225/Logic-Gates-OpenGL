@@ -2044,12 +2044,14 @@ int main(int argc, char *argv[]) {
     glfwWindowHint(GLFW_SAMPLES, 4); // MSAA (Anti-Aliasing) with 4 samples (must be done before window is created (?))
 
     /* Create a windowed mode window and its OpenGL context */
-    window = glfwCreateWindow(960, 720, "Logic Gates", NULL, NULL);
+    const GLFWvidmode *monitorSize = glfwGetVideoMode(glfwGetPrimaryMonitor());
+    int windowHeight = monitorSize -> height * 0.85;
+    window = glfwCreateWindow(windowHeight * 4 / 3, windowHeight, "Logic Gates", NULL, NULL);
     if (!window) {
         glfwTerminate();
     }
     glfwMakeContextCurrent(window);
-    glfwSetWindowSizeLimits(window, GLFW_DONT_CARE, GLFW_DONT_CARE, 960, 720);
+    glfwSetWindowSizeLimits(window, GLFW_DONT_CARE, GLFW_DONT_CARE, windowHeight * 4 / 3, windowHeight);
     gladLoadGL();
     /* load logo */
     GLFWimage icon;
