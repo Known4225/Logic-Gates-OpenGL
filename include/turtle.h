@@ -15,6 +15,11 @@ keyboard and mouse presses
 #include "glfw3.h"
 #include "list.h"
 
+extern void glColor4d(double r, double g, double b, double a); // genius tactic to stop compiler warnings
+extern void glBegin(int type);
+extern void glVertex2d(double x, double y);
+extern void glEnd();
+
 typedef struct {
     GLFWwindow* window; // the window
     char close;
