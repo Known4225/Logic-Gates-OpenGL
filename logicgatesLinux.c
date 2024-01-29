@@ -2045,7 +2045,7 @@ int main(int argc, char *argv[]) {
 
     /* Create a windowed mode window and its OpenGL context */
     const GLFWvidmode *monitorSize = glfwGetVideoMode(glfwGetPrimaryMonitor());
-    int windowHeight = monitorSize -> height * 0.9;
+    int windowHeight = monitorSize -> height * 0.85;
     window = glfwCreateWindow(windowHeight * 4 / 3, windowHeight, "Logic Gates", NULL, NULL);
     if (!window) {
         glfwTerminate();
