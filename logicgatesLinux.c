@@ -50,19 +50,22 @@ typedef struct { // all logicgates variables (shared state) are defined here
     double selectX2;
     double selectY;
     double selectY2;
+    list_t *compSlots; // a lookup table for which components have two inputs vs one
     char wireHold;
     int wiringStart;
     int wiringEnd;
+    
+    /* these 5 lists make up the data of the circuit */
     list_t *components; // list of components (1 item for each component, a string with "POWER", "AND", etc), a component's "ID" or "Handle" is that component's index in this list
-    list_t *compSlots; // a lookup table for which components have two inputs vs one
-    list_t *deleteQueue; // when many components are deleted, they are queued here
+    list_t *positions; // list of component positions (3 items for each component, doubles specifying x, y, and angle)
     list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible connections (either 1 or 2), connection 1 (ID, 0 if none), connection 2 (ID, 0 if none)
     list_t *io; // list of binary inputs and outputs of a component (3 items for each component, 2 inputs followed by the output of the component (either a 0 or 1))
+    list_t *wiring; // list of component connections (3 items per connection, it goes sender (ID), reciever (ID), powered (0 or 1))
+    
     char keys[21];
-    list_t *positions; // list of component positions (3 items for each component, doubles specifying x, y, and angle)
+    list_t *deleteQueue; // when many components are deleted, they are queued here
     list_t *selected; // list of selected component IDs
     list_t *selectOb; // list of selected component IDs (but different?)
-    list_t *wiring; // list of component connections (3 items per connection, it goes sender (ID), reciever (ID), powered (0 or 1))
     list_t *wireTemp;
     double sinRot;
     double cosRot;
@@ -208,6 +211,7 @@ void import(logicgates *selfp, const char *filename) { // imports a file
     int int1;
     int end = 0;
     int num = 0;
+    int oldCompLen = self.components -> length - 1;
     while (end != EOF) {
         end = fscanf(file, "%s", str1);
         if (str1[0] == '-') {break;}
@@ -242,12 +246,12 @@ void import(logicgates *selfp, const char *filename) { // imports a file
         }
         for (int i = 0; i < num * 3; i++) {
             end = fscanf(file, "%d", &int1);
-            list_append(self.inpComp, (unitype) int1, 'i');
+            list_append(self.inpComp, (unitype) (int1 + oldCompLen), 'i');
         }
         while (end != EOF) {
             end = fscanf(file, "%d", &int1);
             if (end != EOF)
-                list_append(self.wiring, (unitype) int1, 'i');
+                list_append(self.wiring, (unitype) (int1 + oldCompLen), 'i');
         }
         self.screenX = -self.positions -> data[1].d;
         self.screenY = -self.positions -> data[2].d;
@@ -2021,6 +2025,21 @@ void parseRibbonOutput(logicgates *selfp) {
             }
             if (ribbonRender.output[2] == 2) { // redo
                 printf("redo\n");
+            }
+            if (ribbonRender.output[2] == 3) { // cut
+
+            }
+            if (ribbonRender.output[2] == 4) { // copy
+
+            }
+            if (ribbonRender.output[2] == 5) { // paste
+
+            }
+            if (ribbonRender.output[2] == 6) { // add file
+                if (zenityFileDialogPrompt(0, "") != -1) {
+                    // printf("Loaded data from: %s\n", zenityFileDialog.filename);
+                    import(&self, zenityFileDialog.filename);
+                }
             }
         }
         if (ribbonRender.output[1] == 2) { // view

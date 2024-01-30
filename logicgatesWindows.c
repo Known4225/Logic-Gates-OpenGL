@@ -208,6 +208,7 @@ void import(logicgates *selfp, const char *filename) { // imports a file
     int int1;
     int end = 0;
     int num = 0;
+    int oldCompLen = self.components -> length - 1;
     while (end != EOF) {
         end = fscanf(file, "%s", str1);
         if (str1[0] == '-') {break;}
@@ -242,12 +243,12 @@ void import(logicgates *selfp, const char *filename) { // imports a file
         }
         for (int i = 0; i < num * 3; i++) {
             end = fscanf(file, "%d", &int1);
-            list_append(self.inpComp, (unitype) int1, 'i');
+            list_append(self.inpComp, (unitype) (int1 + oldCompLen), 'i');
         }
         while (end != EOF) {
             end = fscanf(file, "%d", &int1);
             if (end != EOF)
-                list_append(self.wiring, (unitype) int1, 'i');
+                list_append(self.wiring, (unitype) (int1 + oldCompLen), 'i');
         }
         self.screenX = -self.positions -> data[1].d;
         self.screenY = -self.positions -> data[2].d;
@@ -2021,6 +2022,21 @@ void parseRibbonOutput(logicgates *selfp) {
             }
             if (ribbonRender.output[2] == 2) { // redo
                 printf("redo\n");
+            }
+            if (ribbonRender.output[2] == 3) { // cut
+
+            }
+            if (ribbonRender.output[2] == 4) { // copy
+
+            }
+            if (ribbonRender.output[2] == 5) { // paste
+
+            }
+            if (ribbonRender.output[2] == 6) { // add file
+                if (zenityFileDialogPrompt(0, "") != -1) {
+                    // printf("Loaded data from: %s\n", zenityFileDialog.filename);
+                    import(&self, zenityFileDialog.filename);
+                }
             }
         }
         if (ribbonRender.output[1] == 2) { // view
