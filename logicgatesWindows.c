@@ -2148,7 +2148,7 @@ int main(int argc, char *argv[]) {
             BUFFER(&self, self.mx, self.my, self.globalsize, self.holdingAng);
         // rotation using sideways arrows
         if (turtleKeyPressed(GLFW_KEY_RIGHT)) {
-            if (!self.holding == 0 && !self.holding == 1) {
+            if (strcmp(self.holding, "a") != 0 && strcmp(self.holding, "b") != 0) {
                 self.holdingAng += 0.5 * self.rotateSpeed;
             } else {
                 if (self.selecting > 1) {
@@ -2174,7 +2174,7 @@ int main(int argc, char *argv[]) {
             }
         }
         if (turtleKeyPressed(GLFW_KEY_LEFT)) {
-            if (!self.holding == 0 && !self.holding == 1) {
+            if (strcmp(self.holding, "a") != 0 && strcmp(self.holding, "b") != 0) {
                 self.holdingAng -= 0.5 * self.rotateSpeed;
             } else {
                 if (self.selecting > 1) {

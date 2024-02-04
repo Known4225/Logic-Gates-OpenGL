@@ -299,6 +299,7 @@ void turtleGoto(double x, double y) { // moves the turtle to a coordinate
     }
 }
 void turtleCircleRender(double x, double y, double rad, double r, double g, double b, double a, double xfact, double yfact, double prez) { // draws a circle at the specified x and y (coordinates)
+    // printf("rendering circle %lf\n", prez);
     char colorChange = 0;
     if (r != turtle.currentColor[0]) {colorChange = 1;}
     if (g != turtle.currentColor[1]) {colorChange = 1;}
