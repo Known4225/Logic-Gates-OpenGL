@@ -2033,9 +2033,9 @@ void parseRibbonOutput(logicgates *selfp) {
 
             }
             if (ribbonRender.output[2] == 6) { // add file
-                if (zenityFileDialogPrompt(0, "") != -1) {
-                    // printf("Loaded data from: %s\n", zenityFileDialog.filename);
-                    import(&self, zenityFileDialog.filename);
+                if (win32FileDialogPrompt(0, "") != -1) {
+                    // printf("Loaded data from: %s\n", win32FileDialog.filename);
+                    import(&self, win32FileDialog.filename);
                 }
             }
         }
