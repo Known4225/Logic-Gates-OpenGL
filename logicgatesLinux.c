@@ -6,54 +6,55 @@
 #include "include/stb_image.h" // THANK YOU https://github.com/nothings/stb
 
 typedef struct { // all logicgates variables (shared state) are defined here
-    double globalsize;
-    double themeColors[55];
-    char theme;
-    char sidebar;
-    char selecting;
-    char indicators;
-    char mouseType;
-    char wireMode;
-    double scrollSpeed;
-    double rotateSpeed;
-    int rotateCooldown;
-    double mx;
-    double my;
-    double mw;
-    double boundXmin;
-    double boundYmin;
-    double boundXmax;
-    double boundYmax;
-    double scaling;
-    double GraphPrez;
-    char *holding;
-    double holdingAng;
-    double wxOffE;
-    double wyOffE;
-    double screenX;
+    double globalsize; // size multiplier - bigger means zoomed in
+    double themeColors[55]; // rgb colour array, there are 9 colours, accross 2 themes each with 3 components for rgb
+    char theme; // this is the index to use in themeColors when determining what colour to render an object in
+    char sidebar; // whether sidebar is shown, 0 - hidden, 1 - shown
+    char selecting; // i dont know
+    char indicators; // idk
+    char mouseType; // mouseType?
+    char wireMode; // there are two wireModes, 0 is classic, 1 is angular (new style)
+    double scrollSpeed; // how fast the scroll zooms in, I think it's a 1.15x
+    double rotateSpeed; // how fast the arrow keys rotate components
+    int rotateCooldown; // what?
+    double mx; // mouseX bounded by window
+    double my; // mouseY bounded by window
+    double mw; // mouseWheel
+    double boundXmin; // bound for mx
+    double boundYmin; // bound for my
+    double boundXmax; // bound for mx
+    double boundYmax; // bound for my
+    double scaling; // idk
+    double GraphPrez; /* how many segments are drawn in the bezier curves used to construct gates with curves, 
+    this should scale with the zoom level but actually i don't think it does that. I should add that */
+    char *holding; // oh god
+    double holdingAng; // idk
+    double wxOffE; // some offset var idk
+    double wyOffE; // offset for y
+    double screenX; // no idea what the screen variables do
     double screenY;
     double sxmax;
     double sxmin;
     double symax;
     double symin;
-    int hlgcomp;
-    int hglmove;
-    double tempX;
-    double tempY;
-    double offX;
+    int hlgcomp; // bad design decisions
+    int hglmove; // bad naming scheme
+    double tempX; // wow tempX that's just great
+    double tempY; // these were made at a time when this project was small
+    double offX; // another offset, but older
     double offY;
-    double FocalX;
-    double FocalY;
+    double FocalX; // these have to do with dragging the screen around
+    double FocalY; // they keep track of the mouse position
     double FocalCSX;
     double FocalCSY;
-    double selectX;
-    double selectX2;
+    double selectX; // i believe these are the bounds of the selection box
+    double selectX2; // these are likely absolute coordinates, but i dont know
     double selectY;
     double selectY2;
     list_t *compSlots; // a lookup table for which components have two inputs vs one
-    char wireHold;
-    int wiringStart;
-    int wiringEnd;
+    char wireHold; // i dont know
+    int wiringStart; // the component ID of the start of a (under construction) wire
+    int wiringEnd; // the component ID of the end of a wire at the moment it is constructed
     
     /* these 5 lists make up the data of the circuit */
     list_t *components; // list of components (1 item for each component, a string with "POWER", "AND", etc), a component's "ID" or "Handle" is that component's index in this list
@@ -69,9 +70,9 @@ typedef struct { // all logicgates variables (shared state) are defined here
     list_t *wireTemp;
     double sinRot;
     double cosRot;
-    char defaultShape;
-    double defaultPrez;
-    double specialPrez;
+    char defaultShape; // having to do with the penshape
+    double defaultPrez; // having to do with the circle triangle precision
+    double specialPrez; // having to do with special cases where more circle precision is necessary
 } logicgates;
 void init(logicgates *selfp) { // initialises the logicgates variabes (shared state)
     logicgates self = *selfp;
@@ -686,6 +687,11 @@ void snapToGrid(logicgates *selfp, double gridsize) { // snaps components to a g
         self.positions -> data[i] = (unitype) (self.positions -> data[i].d - j); // normalise to 0 again
         self.positions -> data[i + 1] = (unitype) (self.positions -> data[i + 1].d - k);
     }
+    /* straight up genius algorithm, it will snap to closest but then also renormalise to 0,
+    which ensures that files don't have wacky massive decimal number for the coordinates. It also puts the
+    center of the mass at 0, 0 but the user does not notice the translation since their screen is translated
+    by the same amount.
+    */
     self.screenX += j;
     self.screenY += k;
     *selfp = self;
@@ -718,6 +724,23 @@ void selectionBox(logicgates *selfp, double x1, double y1, double x2, double y2)
     *selfp = self;
 }
 void deleteComp(logicgates *selfp, int index) { // deletes a component
+    /* bad foresight compelled me to identify a component's ID
+    based on the index of it's position in the self.components array
+    
+    This means that when a component is deleted all components with an ID greater than that one has
+    themselves reassigned a new ID. This means that every reference to that component (in the other data lists)
+    must be updated to the new ID.
+
+    This allows fast access to a component's data by just given its ID, because it's an array lookup
+    but this is hell for deleting, and if there are any references to a component via its ID anywhere in
+    the program it must be updated.
+
+    yknow having these "components" with associated "data" is something that perhaps, just maybe,
+    could've had its own type.
+
+    We unfortunately live with our decisions, somehow this seemed like the best way to do this at the time, 
+    and to be fair it was written in scratch
+    */
     logicgates self = *selfp;
     int len = self.selected -> length;
     for (int i = 1; i < len; i++) {
