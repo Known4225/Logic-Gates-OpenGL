@@ -264,18 +264,18 @@ void import(logicgates *selfp, const char *filename) { // imports a file
 void export(logicgates *selfp, const char *filename) { // exports a file
     logicgates self = *selfp;
     FILE *file = fopen(filename, "w+");
-        for (int i = 1; i < self.components -> length; i++)
-            fprintf(file, "%s ", self.components -> data[i].s);
-        for (int i = 1; i < self.positions -> length; i++)
-            fprintf(file, "%.0lf ", self.positions -> data[i].d);
-        for (int i = 1; i < self.io -> length; i++)
-            fprintf(file, "%d ", self.io -> data[i].i);
-        for (int i = 1; i < self.inpComp -> length; i++)
-            fprintf(file, "%d ", self.inpComp -> data[i].i);
-        for (int i = 1; i < self.wiring -> length; i++)
-            fprintf(file, "%d ", self.wiring -> data[i].i);
-        printf("Successfully saved to %s\n", filename);
-        fclose(file);
+    for (int i = 1; i < self.components -> length; i++)
+        fprintf(file, "%s ", self.components -> data[i].s);
+    for (int i = 1; i < self.positions -> length; i++)
+        fprintf(file, "%.0lf ", self.positions -> data[i].d);
+    for (int i = 1; i < self.io -> length; i++)
+        fprintf(file, "%d ", self.io -> data[i].i);
+    for (int i = 1; i < self.inpComp -> length; i++)
+        fprintf(file, "%d ", self.inpComp -> data[i].i);
+    for (int i = 1; i < self.wiring -> length; i++)
+        fprintf(file, "%d ", self.wiring -> data[i].i);
+    printf("Successfully saved to %s\n", filename);
+    fclose(file);
     *selfp = self;
 }
 void POWER(logicgates *selfp, double x, double y, double size, double rot, char state, char select) { // draws a POWER component
@@ -2122,6 +2122,7 @@ int main(int argc, char *argv[]) {
 
     if (argc > 1) {
         import(&self, argv[1]);
+        strcpy(zenityFileDialog.filename, argv[1]);
     }
     int frame = 0;
     while (turtle.close == 0) {
