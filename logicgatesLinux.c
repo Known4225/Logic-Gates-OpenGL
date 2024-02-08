@@ -63,11 +63,12 @@ typedef struct { // all logicgates variables (shared state) are defined here
     list_t *io; // list of binary inputs and outputs of a component (3 items for each component, 2 inputs followed by the output of the component (either a 0 or 1))
     list_t *wiring; // list of component connections (3 items per connection, it goes sender (ID), reciever (ID), powered (0 or 1))
     
-    char keys[21];
+    char keys[22];
     list_t *deleteQueue; // when many components are deleted, they are queued here
     list_t *selected; // list of selected component IDs
     list_t *selectOb; // list of selected component IDs (but different?)
-    list_t *wireTemp;
+    list_t *wireTemp; // i dont even know what this is for
+    list_t *copyBuffer; // for ctrl+c and ctrl+v
     double sinRot;
     double cosRot;
     char defaultShape; // having to do with the penshape
@@ -182,6 +183,12 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     list_append(self.wiring, (unitype) 'n', 'c');
     self.wireTemp = list_init();
     list_append(self.wireTemp, (unitype) 'n', 'c');
+    self.copyBuffer = list_init();
+    list_append(self.copyBuffer, (unitype) 'n', 'c');
+    for (int i = 0; i < 5; i++) {
+        list_append(self.copyBuffer, (unitype) list_init(), 'r');
+        list_append(self.copyBuffer -> data[i].r, (unitype) 'n', 'c');
+    }
     self.sinRot = 0;
     self.cosRot = 0;
     self.defaultShape = 0; // 0 for circle (pretty), 3 for none (fastest), basically 0 is prettiest 3 is fastest, everything between is a spectrum
@@ -570,6 +577,132 @@ void copySelected(logicgates *selfp) { // copies and pastes selected components
     for (int i = 1; i < m1; i++) {
         list_append(self.components, self.components -> data[self.selected -> data[i].i], 's');
         list_append(self.positions, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 2].d + self.mx / self.globalsize - self.screenX - j), 'd');
+        list_append(self.positions, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d + self.my / self.globalsize - self.screenY - k), 'd');
+        list_append(self.positions, self.positions -> data[self.selected -> data[i].i * 3], 'd');
+        list_append(self.io, (unitype) 0, 'i');
+        list_append(self.io, (unitype) 0, 'i');
+        list_append(self.io, (unitype) 0, 'i');
+        list_append(self.inpComp, self.inpComp -> data[self.selected -> data[i].i * 3 - 2], 'i');
+        if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') > 0) {
+            list_append(self.inpComp, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') - 1), 'i');
+            if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
+                list_append(self.inpComp, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') - 1), 'i');
+            } else {
+                list_append(self.inpComp, (unitype) 0, 'i');
+            }
+        } else {
+            if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
+                list_append(self.inpComp, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') - 1), 'i');
+            } else {
+                list_append(self.inpComp, (unitype) 0, 'i');
+            }
+            list_append(self.inpComp, (unitype) 0, 'i');
+        }
+    }
+    int n = self.components -> length - self.selected -> length;
+    list_t *wireTemp = list_init();
+    for (int i = 1; i < m1; i++) {
+        list_append(wireTemp, (unitype) (n + i), 'i');
+    }
+    int len = self.wiring -> length;
+    for (int i = 1; i < len; i += 3) {
+        if (list_count(self.selected, self.wiring -> data[i], 'i') > 0 && list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0) {
+            list_append(self.wiring, wireTemp -> data[list_find(self.selected, self.wiring -> data[i], 'i') - 1], 'i');
+            list_append(self.wiring, wireTemp -> data[list_find(self.selected, self.wiring -> data[i + 1], 'i') - 1], 'i');
+            list_append(self.wiring, (unitype) 0, 'i');
+        }
+    }
+    int i = self.components -> length - self.selected -> length + 1;
+    list_clear(self.selected);
+    list_append(self.selected, (unitype) "null", 's');
+    for (int o = 1; o < m1; o++) {
+        list_append(self.selected, (unitype) i, 'i');
+        i += 1;
+    }
+    *selfp = self;
+}
+void copyToBuffer(logicgates *selfp) {
+    logicgates self = *selfp;
+    self.sxmax = 0;
+    self.sxmin = 0;
+    self.symax = 0;
+    self.symin = 0;
+    self.selecting = 3;
+    double j = 0;
+    double k = 0;
+    int l = self.components -> length;
+    int m1 = self.selected -> length;
+    for (int i = 1; i < m1; i++) {
+        j += self.positions -> data[self.selected -> data[i].i * 3 - 2].d;
+        k += self.positions -> data[self.selected -> data[i].i * 3 - 1].d;
+    }
+    j /= m1 - 1;
+    k /= m1 - 1;
+    for (int i = 1; i < m1; i++) {
+        list_append(self.copyBuffer -> data[1].r, self.components -> data[self.selected -> data[i].i], 's');
+        list_append(self.copyBuffer -> data[2].r, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 2].d - j), 'd');
+        list_append(self.copyBuffer -> data[2].r, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d - k), 'd');
+        list_append(self.copyBuffer -> data[2].r, self.positions -> data[self.selected -> data[i].i * 3], 'd');
+        list_append(self.copyBuffer -> data[3].r, (unitype) 0, 'i');
+        list_append(self.copyBuffer -> data[3].r, (unitype) 0, 'i');
+        list_append(self.copyBuffer -> data[3].r, (unitype) 0, 'i');
+        list_append(self.copyBuffer -> data[4].r, self.inpComp -> data[self.selected -> data[i].i * 3 - 2], 'i');
+        if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') > 0) {
+            list_append(self.copyBuffer -> data[4].r, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') - 1), 'i');
+            if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
+                list_append(self.copyBuffer -> data[4].r, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') - 1), 'i');
+            } else {
+                list_append(self.copyBuffer -> data[4].r, (unitype) 0, 'i');
+            }
+        } else {
+            if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
+                list_append(self.copyBuffer -> data[4].r, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') - 1), 'i');
+            } else {
+                list_append(self.copyBuffer -> data[4].r, (unitype) 0, 'i');
+            }
+            list_append(self.copyBuffer -> data[4].r, (unitype) 0, 'i');
+        }
+    }
+    /*
+    adds appropriate wires but with the expectation that these values
+    will be added to the current number of components when it is pasted,
+    so remember to do that
+    */
+    int n = 0;
+    list_t *wireTemp = list_init();
+    for (int i = 1; i < m1; i++) {
+        list_append(wireTemp, (unitype) (n + i), 'i');
+    }
+    int len = self.wiring -> length;
+    for (int i = 1; i < len; i += 3) {
+        if (list_count(self.selected, self.wiring -> data[i], 'i') > 0 && list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0) {
+            list_append(self.copyBuffer -> data[5].r, wireTemp -> data[list_find(self.selected, self.wiring -> data[i], 'i') - 1], 'i');
+            list_append(self.copyBuffer -> data[5].r, wireTemp -> data[list_find(self.selected, self.wiring -> data[i + 1], 'i') - 1], 'i');
+            list_append(self.copyBuffer -> data[5].r, (unitype) 0, 'i');
+        }
+    }
+    *selfp = self;
+}
+void pasteFromBuffer(logicgates *selfp) {
+    logicgates self = *selfp;
+    self.sxmax = 0;
+    self.sxmin = 0;
+    self.symax = 0;
+    self.symin = 0;
+    self.selecting = 3;
+    double j = 0;
+    double k = 0;
+    int l = self.components -> length;
+    int m1 = self.selected -> length;
+    for (int i = 1; i < m1; i++) {
+        j += self.positions -> data[self.selected -> data[i].i * 3 - 2].d;
+        k += self.positions -> data[self.selected -> data[i].i * 3 - 1].d;
+    }
+    j /= m1 - 1;
+    k /= m1 - 1;
+    for (int i = 1; i < m1; i++) {
+        list_append(self.components, self.copyBuffer -> data[1].r -> data[i], 's');
+        list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 2].d + self.mx / self.globalsize - self.screenX), 'd');
         list_append(self.positions, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d + self.my / self.globalsize - self.screenY - k), 'd');
         list_append(self.positions, self.positions -> data[self.selected -> data[i].i * 3], 'd');
         list_append(self.io, (unitype) 0, 'i');
@@ -1748,6 +1881,19 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
         self.keys[1] = 0;
     }
     if (turtleKeyPressed(GLFW_KEY_S) || turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)) { // s key or left shift
+        if (turtleKeyPressed(GLFW_KEY_S) && self.keys[2] == 0 && self.keys[21] == 1) {
+            // this activates when you hit ctrl+s on the first frame of the s button press
+            // do save routine
+            if (strcmp(zenityFileDialog.filename, "null") == 0) {
+                if (zenityFileDialogPrompt(1, "") != -1) {
+                    printf("Saved to: %s\n", zenityFileDialog.filename);
+                    export(&self, zenityFileDialog.filename);
+                }
+            } else {
+                printf("Saved to: %s\n", zenityFileDialog.filename);
+                export(&self, zenityFileDialog.filename);
+            }
+        }
         self.keys[2] = 1;
     } else {
         self.keys[2] = 0;
@@ -1837,18 +1983,6 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
     } else {
         self.keys[10] = 0;
     }
-    if (turtleKeyPressed(GLFW_KEY_W)) { // w key
-        if (!self.keys[20]) {
-            if (self.wireMode == 0) {
-                self.wireMode = 1;
-            } else {
-                self.wireMode = 0;
-            }
-        }
-        self.keys[20] = 1;
-    } else {
-        self.keys[20] = 0;
-    }
     if (turtleKeyPressed(GLFW_KEY_T)) { // t key
         if (!self.keys[11]) {
             if (self.theme == 0) {
@@ -1921,8 +2055,13 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
     }
     if (turtleKeyPressed(GLFW_KEY_C)) { // c key
         if (!self.keys[17]) {
-            if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0))
-                copySelected(&self);
+            if (self.keys[21] == 1) {
+                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0))
+                    copyToBuffer(&self); // copy for later (ctrl+v)
+            } else {
+                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0))
+                    copySelected(&self); // copy directly
+            }    
         }
         self.keys[17] = 1;
     } else {
@@ -1946,6 +2085,33 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
         self.keys[19] = 1;
     } else {
         self.keys[19] = 0;
+    }
+    if (turtleKeyPressed(GLFW_KEY_W)) { // w key
+        if (!self.keys[20]) {
+            if (self.wireMode == 0) {
+                self.wireMode = 1;
+            } else {
+                self.wireMode = 0;
+            }
+        }
+        self.keys[20] = 1;
+    } else {
+        self.keys[20] = 0;
+    }
+    if (turtleKeyPressed(GLFW_KEY_LEFT_CONTROL)) { // left ctrl
+        // a combo key
+        self.keys[21] = 1;
+    } else {
+        self.keys[21] = 0;
+    }
+    if (turtleKeyPressed(GLFW_KEY_V)) { // for ctrl+v
+        if (self.keys[22] == 0 && self.keys[21] == 1) {
+            // ctrl+v
+            pasteFromBuffer(&self);
+        }
+        self.keys[22] = 1;
+    } else {
+        self.keys[22] = 0;
     }
     *selfp = self;
 }
