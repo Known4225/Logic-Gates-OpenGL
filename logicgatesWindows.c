@@ -1,74 +1,79 @@
 #include "include/turtle.h"
 #include "include/ribbon.h"
-#include "include/win32Tools.h"
+#include "include/win32tools.h"
 #include <time.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "include/stb_image.h" // THANK YOU https://github.com/nothings/stb
 
 typedef struct { // all logicgates variables (shared state) are defined here
-    double globalsize;
-    double themeColors[55];
-    char theme;
-    char sidebar;
-    char selecting;
-    char indicators;
-    char mouseType;
-    char wireMode;
-    double scrollSpeed;
-    double rotateSpeed;
-    int rotateCooldown;
-    double mx;
-    double my;
-    double mw;
-    double boundXmin;
-    double boundYmin;
-    double boundXmax;
-    double boundYmax;
-    double scaling;
-    double GraphPrez;
-    char *holding;
-    double holdingAng;
-    double wxOffE;
-    double wyOffE;
-    double screenX;
+    double globalsize; // size multiplier - bigger means zoomed in
+    double themeColors[55]; // rgb colour array, there are 9 colours, accross 2 themes each with 3 components for rgb
+    char theme; // this is the index to use in themeColors when determining what colour to render an object in
+    char sidebar; // whether sidebar is shown, 0 - hidden, 1 - shown
+    char selecting; // i dont know
+    char indicators; // idk
+    char mouseType; // mouseType?
+    char wireMode; // there are two wireModes, 0 is classic, 1 is angular (new style)
+    double scrollSpeed; // how fast the scroll zooms in, I think it's a 1.15x
+    double rotateSpeed; // how fast the arrow keys rotate components
+    int rotateCooldown; // what?
+    double mx; // mouseX bounded by window
+    double my; // mouseY bounded by window
+    double mw; // mouseWheel
+    double boundXmin; // bound for mx
+    double boundYmin; // bound for my
+    double boundXmax; // bound for mx
+    double boundYmax; // bound for my
+    double scaling; // idk
+    double GraphPrez; /* how many segments are drawn in the bezier curves used to construct gates with curves, 
+    this should scale with the zoom level but actually i don't think it does that. I should add that */
+    char *holding; // oh god
+    double holdingAng; // idk
+    double wxOffE; // some offset var idk
+    double wyOffE; // offset for y
+    double screenX; // no idea what the screen variables do
     double screenY;
     double sxmax;
     double sxmin;
     double symax;
     double symin;
-    int hlgcomp;
-    int hglmove;
-    double tempX;
-    double tempY;
-    double offX;
+    int hlgcomp; // bad design decisions
+    int hglmove; // bad naming scheme
+    double tempX; // wow tempX that's just great
+    double tempY; // these were made at a time when this project was small
+    double offX; // another offset, but older
     double offY;
-    double FocalX;
-    double FocalY;
+    double FocalX; // these have to do with dragging the screen around
+    double FocalY; // they keep track of the mouse position
     double FocalCSX;
     double FocalCSY;
-    double selectX;
-    double selectX2;
+    double selectX; // i believe these are the bounds of the selection box
+    double selectX2; // these are likely absolute coordinates, but i dont know
     double selectY;
     double selectY2;
-    char wireHold;
-    int wiringStart;
-    int wiringEnd;
-    list_t *components; // list of components (1 item for each component, a string with "POWER", "AND", etc), a component's "ID" or "Handle" is that component's index in this list
     list_t *compSlots; // a lookup table for which components have two inputs vs one
-    list_t *deleteQueue; // when many components are deleted, they are queued here
+    char wireHold; // i dont know
+    int wiringStart; // the component ID of the start of a (under construction) wire
+    int wiringEnd; // the component ID of the end of a wire at the moment it is constructed
+    
+    /* these 5 lists make up the data of the circuit */
+    list_t *components; // list of components (1 item for each component, a string with "POWER", "AND", etc), a component's "ID" or "Handle" is that component's index in this list
+    list_t *positions; // list of component positions (3 items for each component, doubles specifying x, y, and angle)
     list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible connections (either 1 or 2), connection 1 (ID, 0 if none), connection 2 (ID, 0 if none)
     list_t *io; // list of binary inputs and outputs of a component (3 items for each component, 2 inputs followed by the output of the component (either a 0 or 1))
-    char keys[21];
-    list_t *positions; // list of component positions (3 items for each component, doubles specifying x, y, and angle)
+    list_t *wiring; // list of component connections (3 items per connection, it goes sender (ID), reciever (ID), powered (0 or 1))
+    
+    char keys[22];
+    list_t *deleteQueue; // when many components are deleted, they are queued here
     list_t *selected; // list of selected component IDs
     list_t *selectOb; // list of selected component IDs (but different?)
-    list_t *wiring; // list of component connections (3 items per connection, it goes sender (ID), reciever (ID), powered (0 or 1))
-    list_t *wireTemp;
+    list_t *wireTemp; // i dont even know what this is for
+    list_t *copyBuffer; // for ctrl+c and ctrl+v
     double sinRot;
     double cosRot;
-    char defaultShape;
-    double defaultPrez;
-    double specialPrez;
+    char defaultShape; // having to do with the penshape
+    double defaultPrez; // having to do with the circle triangle precision
+    double specialPrez; // having to do with special cases where more circle precision is necessary
 } logicgates;
 void init(logicgates *selfp) { // initialises the logicgates variabes (shared state)
     logicgates self = *selfp;
@@ -178,6 +183,12 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     list_append(self.wiring, (unitype) 'n', 'c');
     self.wireTemp = list_init();
     list_append(self.wireTemp, (unitype) 'n', 'c');
+    self.copyBuffer = list_init();
+    list_append(self.copyBuffer, (unitype) 'n', 'c');
+    for (int i = 1; i < 6; i++) {
+        list_append(self.copyBuffer, (unitype) list_init(), 'r');
+        list_append(self.copyBuffer -> data[i].r, (unitype) 'n', 'c');
+    }
     self.sinRot = 0;
     self.cosRot = 0;
     self.defaultShape = 0; // 0 for circle (pretty), 3 for none (fastest), basically 0 is prettiest 3 is fastest, everything between is a spectrum
@@ -260,18 +271,18 @@ void import(logicgates *selfp, const char *filename) { // imports a file
 void export(logicgates *selfp, const char *filename) { // exports a file
     logicgates self = *selfp;
     FILE *file = fopen(filename, "w+");
-        for (int i = 1; i < self.components -> length; i++)
-            fprintf(file, "%s ", self.components -> data[i].s);
-        for (int i = 1; i < self.positions -> length; i++)
-            fprintf(file, "%.0lf ", self.positions -> data[i].d);
-        for (int i = 1; i < self.io -> length; i++)
-            fprintf(file, "%d ", self.io -> data[i].i);
-        for (int i = 1; i < self.inpComp -> length; i++)
-            fprintf(file, "%d ", self.inpComp -> data[i].i);
-        for (int i = 1; i < self.wiring -> length; i++)
-            fprintf(file, "%d ", self.wiring -> data[i].i);
-        printf("Successfully saved to %s\n", filename);
-        fclose(file);
+    for (int i = 1; i < self.components -> length; i++)
+        fprintf(file, "%s ", self.components -> data[i].s);
+    for (int i = 1; i < self.positions -> length; i++)
+        fprintf(file, "%.0lf ", self.positions -> data[i].d);
+    for (int i = 1; i < self.io -> length; i++)
+        fprintf(file, "%d ", self.io -> data[i].i);
+    for (int i = 1; i < self.inpComp -> length; i++)
+        fprintf(file, "%d ", self.inpComp -> data[i].i);
+    for (int i = 1; i < self.wiring -> length; i++)
+        fprintf(file, "%d ", self.wiring -> data[i].i);
+    printf("Successfully saved to %s\n", filename);
+    fclose(file);
     *selfp = self;
 }
 void POWER(logicgates *selfp, double x, double y, double size, double rot, char state, char select) { // draws a POWER component
@@ -610,6 +621,146 @@ void copySelected(logicgates *selfp) { // copies and pastes selected components
     }
     *selfp = self;
 }
+void copyToBuffer(logicgates *selfp) {
+    logicgates self = *selfp;
+    self.sxmax = 0;
+    self.sxmin = 0;
+    self.symax = 0;
+    self.symin = 0;
+    self.selecting = 3;
+    double j = 0;
+    double k = 0;
+    int l = self.components -> length;
+    int m1 = self.selected -> length;
+    for (int i = 1; i < m1; i++) {
+        j += self.positions -> data[self.selected -> data[i].i * 3 - 2].d;
+        k += self.positions -> data[self.selected -> data[i].i * 3 - 1].d;
+    }
+    j /= m1 - 1;
+    k /= m1 - 1;
+    for (int i = 1; i < m1; i++) {
+        list_append(self.copyBuffer -> data[1].r, self.components -> data[self.selected -> data[i].i], 's');
+        list_append(self.copyBuffer -> data[2].r, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 2].d - j), 'd');
+        list_append(self.copyBuffer -> data[2].r, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d - k), 'd');
+        list_append(self.copyBuffer -> data[2].r, self.positions -> data[self.selected -> data[i].i * 3], 'd');
+        list_append(self.copyBuffer -> data[3].r, (unitype) 0, 'i');
+        list_append(self.copyBuffer -> data[3].r, (unitype) 0, 'i');
+        list_append(self.copyBuffer -> data[3].r, (unitype) 0, 'i');
+        list_append(self.copyBuffer -> data[4].r, self.inpComp -> data[self.selected -> data[i].i * 3 - 2], 'i');
+        // do not add l or 1, 1 will be subtracted later, as will the later l be added because it may change between copying and pasting
+        if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') > 0) {
+            list_append(self.copyBuffer -> data[4].r, (unitype) (list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i')), 'i');
+            if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
+                list_append(self.copyBuffer -> data[4].r, (unitype) (list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i')), 'i');
+            } else {
+                list_append(self.copyBuffer -> data[4].r, (unitype) 0, 'i');
+            }
+        } else {
+            if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
+                list_append(self.copyBuffer -> data[4].r, (unitype) (list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i')), 'i');
+            } else {
+                list_append(self.copyBuffer -> data[4].r, (unitype) 0, 'i');
+            }
+            list_append(self.copyBuffer -> data[4].r, (unitype) 0, 'i');
+        }
+    }
+    /*
+    adds appropriate wires but with the expectation that these values
+    will be added to the current number of components when it is pasted,
+    so remember to do that
+    */
+    int n = 0;
+    list_t *wireTemp = list_init();
+    for (int i = 1; i < m1; i++) {
+        list_append(wireTemp, (unitype) (n + i), 'i');
+    }
+    int len = self.wiring -> length;
+    for (int i = 1; i < len; i += 3) {
+        if (list_count(self.selected, self.wiring -> data[i], 'i') > 0 && list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0) {
+            list_append(self.copyBuffer -> data[5].r, wireTemp -> data[list_find(self.selected, self.wiring -> data[i], 'i') - 1], 'i');
+            list_append(self.copyBuffer -> data[5].r, wireTemp -> data[list_find(self.selected, self.wiring -> data[i + 1], 'i') - 1], 'i');
+            list_append(self.copyBuffer -> data[5].r, (unitype) 0, 'i');
+        }
+    }
+    *selfp = self;
+}
+void pasteFromBuffer(logicgates *selfp) {
+    logicgates self = *selfp;
+    self.sxmax = 0;
+    self.sxmin = 0;
+    self.symax = 0;
+    self.symin = 0;
+    self.selecting = 3;
+    double j = 0;
+    double k = 0;
+    int l = self.components -> length;
+    int m1 = self.copyBuffer -> data[1].r -> length; // length of copied data
+    for (int i = 1; i < m1; i++) {
+        // component straight copied from copyBuffer
+        list_append(self.components, self.copyBuffer -> data[1].r -> data[i], 's');
+        // positions must be translated by mouse and screen position to reflect their new location of pastement, center of mass has been precalculated
+        list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 2].d + self.mx / self.globalsize - self.screenX), 'd');
+        list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 2].d + self.my / self.globalsize - self.screenY), 'd');
+        list_append(self.positions, self.copyBuffer -> data[2].r -> data[i * 3 - 2], 'd');
+        // io is always 0, so the copyBuffer is unecessary in this case
+        list_append(self.io, (unitype) 0, 'i');
+        list_append(self.io, (unitype) 0, 'i');
+        list_append(self.io, (unitype) 0, 'i');
+        // inpComp is more complicated
+        list_append(self.inpComp, (unitype) (l + self.copyBuffer -> data[4].r -> data[i * 3 - 2].i), 'i');
+        // the next two could be 0, if they are, keep them at 0
+        if (self.copyBuffer -> data[4].r -> data[i * 3 - 1].i == 0)
+            list_append(self.inpComp, (unitype) 0, 'i');
+        else
+            list_append(self.inpComp, (unitype) (l + self.copyBuffer -> data[4].r -> data[i * 3 - 1].i - 1), 'i');
+        if (self.copyBuffer -> data[4].r -> data[i * 3].i == 0)
+            list_append(self.inpComp, (unitype) 0, 'i');
+        else
+            list_append(self.inpComp, (unitype) (l + self.copyBuffer -> data[4].r -> data[i * 3].i - 1), 'i');
+        
+        // wiring.
+        int len = self.copyBuffer -> data[5].r -> length;
+        for (int i = 1; i < len; i += 3) {
+            list_append(self.wiring, (unitype) (l + self.copyBuffer -> data[4].r -> data[i].i), 'i');
+            list_append(self.wiring, (unitype) (l + self.copyBuffer -> data[4].r -> data[i].i), 'i');
+            list_append(self.wiring, (unitype) 0, 'i');
+        }
+        int i = self.components -> length - self.copyBuffer -> data[1].r -> length + 1;
+        list_clear(self.selected);
+        list_append(self.selected, (unitype) "null", 's');
+        for (int o = 1; o < m1; o++) {
+            list_append(self.selected, (unitype) i, 'i');
+            i += 1;
+        }
+        printf("paste complete\n");
+        for (int i = 1; i < 6; i++) {
+            list_clear(self.copyBuffer -> data[i].r);
+            list_append(self.copyBuffer -> data[i].r, (unitype) 'n', 'c');
+        }
+        list_print(self.copyBuffer);
+    }
+    int n = self.components -> length - self.selected -> length;
+    list_t *wireTemp = list_init();
+    for (int i = 1; i < m1; i++) {
+        list_append(wireTemp, (unitype) (n + i), 'i');
+    }
+    int len = self.wiring -> length;
+    for (int i = 1; i < len; i += 3) {
+        if (list_count(self.selected, self.wiring -> data[i], 'i') > 0 && list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0) {
+            list_append(self.wiring, wireTemp -> data[list_find(self.selected, self.wiring -> data[i], 'i') - 1], 'i');
+            list_append(self.wiring, wireTemp -> data[list_find(self.selected, self.wiring -> data[i + 1], 'i') - 1], 'i');
+            list_append(self.wiring, (unitype) 0, 'i');
+        }
+    }
+    int i = self.components -> length - self.selected -> length + 1;
+    list_clear(self.selected);
+    list_append(self.selected, (unitype) "null", 's');
+    for (int o = 1; o < m1; o++) {
+        list_append(self.selected, (unitype) i, 'i');
+        i += 1;
+    }
+    *selfp = self;
+}
 double dmod(double input, double modulus) { // fmod that always returns a positive number
     double out = fmod(input, modulus);
     if (out < 0) {
@@ -683,6 +834,11 @@ void snapToGrid(logicgates *selfp, double gridsize) { // snaps components to a g
         self.positions -> data[i] = (unitype) (self.positions -> data[i].d - j); // normalise to 0 again
         self.positions -> data[i + 1] = (unitype) (self.positions -> data[i + 1].d - k);
     }
+    /* straight up genius algorithm, it will snap to closest but then also renormalise to 0,
+    which ensures that files don't have wacky massive decimal number for the coordinates. It also puts the
+    center of the mass at 0, 0 but the user does not notice the translation since their screen is translated
+    by the same amount.
+    */
     self.screenX += j;
     self.screenY += k;
     *selfp = self;
@@ -715,6 +871,23 @@ void selectionBox(logicgates *selfp, double x1, double y1, double x2, double y2)
     *selfp = self;
 }
 void deleteComp(logicgates *selfp, int index) { // deletes a component
+    /* bad foresight compelled me to identify a component's ID
+    based on the index of it's position in the self.components array
+    
+    This means that when a component is deleted all components with an ID greater than that one has
+    themselves reassigned a new ID. This means that every reference to that component (in the other data lists)
+    must be updated to the new ID.
+
+    This allows fast access to a component's data by just given its ID, because it's an array lookup
+    but this is hell for deleting, and if there are any references to a component via its ID anywhere in
+    the program it must be updated.
+
+    yknow having these "components" with associated "data" is something that perhaps, just maybe,
+    could've had its own type.
+
+    We unfortunately live with our decisions, somehow this seemed like the best way to do this at the time, 
+    and to be fair it was written in scratch
+    */
     logicgates self = *selfp;
     int len = self.selected -> length;
     for (int i = 1; i < len; i++) {
@@ -1722,6 +1895,19 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
         self.keys[1] = 0;
     }
     if (turtleKeyPressed(GLFW_KEY_S) || turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)) { // s key or left shift
+        if (turtleKeyPressed(GLFW_KEY_S) && self.keys[2] == 0 && self.keys[21] == 1) {
+            // this activates when you hit ctrl+s on the first frame of the s button press
+            // do save routine
+            if (strcmp(win32FileDialog.filename, "null") == 0) {
+                if (win32FileDialogPrompt(1, "") != -1) {
+                    printf("Saved to: %s\n", win32FileDialog.filename);
+                    export(&self, win32FileDialog.filename);
+                }
+            } else {
+                printf("Saved to: %s\n", win32FileDialog.filename);
+                export(&self, win32FileDialog.filename);
+            }
+        }
         self.keys[2] = 1;
     } else {
         self.keys[2] = 0;
@@ -1811,18 +1997,6 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
     } else {
         self.keys[10] = 0;
     }
-    if (turtleKeyPressed(GLFW_KEY_W)) { // w key
-        if (!self.keys[20]) {
-            if (self.wireMode == 0) {
-                self.wireMode = 1;
-            } else {
-                self.wireMode = 0;
-            }
-        }
-        self.keys[20] = 1;
-    } else {
-        self.keys[20] = 0;
-    }
     if (turtleKeyPressed(GLFW_KEY_T)) { // t key
         if (!self.keys[11]) {
             if (self.theme == 0) {
@@ -1895,8 +2069,16 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
     }
     if (turtleKeyPressed(GLFW_KEY_C)) { // c key
         if (!self.keys[17]) {
-            if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0))
-                copySelected(&self);
+            if (self.keys[21] == 1) {
+                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
+                    printf("copying to buffer\n");
+                    copyToBuffer(&self); // copy for later (ctrl+c)
+                    list_print(self.copyBuffer);
+                }
+            } else {
+                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0))
+                    copySelected(&self); // copy directly
+            }    
         }
         self.keys[17] = 1;
     } else {
@@ -1920,6 +2102,34 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
         self.keys[19] = 1;
     } else {
         self.keys[19] = 0;
+    }
+    if (turtleKeyPressed(GLFW_KEY_W)) { // w key
+        if (!self.keys[20]) {
+            if (self.wireMode == 0) {
+                self.wireMode = 1;
+            } else {
+                self.wireMode = 0;
+            }
+        }
+        self.keys[20] = 1;
+    } else {
+        self.keys[20] = 0;
+    }
+    if (turtleKeyPressed(GLFW_KEY_LEFT_CONTROL)) { // left ctrl
+        // a combo key
+        self.keys[21] = 1;
+    } else {
+        self.keys[21] = 0;
+    }
+    if (turtleKeyPressed(GLFW_KEY_V)) { // for ctrl+v
+        if (self.keys[22] == 0 && self.keys[21] == 1) {
+            // ctrl+v
+            printf("pasting from buffer\n");
+            pasteFromBuffer(&self);
+        }
+        self.keys[22] = 1;
+    } else {
+        self.keys[22] = 0;
     }
     *selfp = self;
 }
@@ -2083,10 +2293,10 @@ int main(int argc, char *argv[]) {
     /* initialise ribbon */
     ribbonInit(window, "include/ribbonConfig.txt");
 
-    /* initialise win32Tools */
+    /* initialise win32tools */
     win32ToolsInit();
     win32FileDialogAddExtension("txt"); // add txt to extension restrictions
-
+    
     int tps = 60; // ticks per second (locked to fps in this case)
     clock_t start, end;
     logicgates self;
@@ -2096,6 +2306,7 @@ int main(int argc, char *argv[]) {
 
     if (argc > 1) {
         import(&self, argv[1]);
+        strcpy(win32FileDialog.filename, argv[1]);
     }
     int frame = 0;
     while (turtle.close == 0) {
@@ -2165,7 +2376,7 @@ int main(int argc, char *argv[]) {
                         }
                     }
                 } else {
-                    if (!self.hlgcomp == 0) {
+                    if (self.hlgcomp != 0) {
                         self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d + 0.5 * self.rotateSpeed);
                         if (self.positions -> data[self.hlgcomp * 3].d > 360)
                             self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d - 360);
@@ -2191,7 +2402,7 @@ int main(int argc, char *argv[]) {
                         }
                     }
                 } else {
-                    if (!self.hlgcomp == 0) {
+                    if (self.hlgcomp != 0) {
                         self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d - 0.5 * self.rotateSpeed);
                         if (self.positions -> data[self.hlgcomp * 3].d < 0)
                             self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d + 360);
