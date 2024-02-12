@@ -185,7 +185,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     list_append(self.wireTemp, (unitype) 'n', 'c');
     self.copyBuffer = list_init();
     list_append(self.copyBuffer, (unitype) 'n', 'c');
-    for (int i = 0; i < 5; i++) {
+    for (int i = 1; i < 6; i++) {
         list_append(self.copyBuffer, (unitype) list_init(), 'r');
         list_append(self.copyBuffer -> data[i].r, (unitype) 'n', 'c');
     }
@@ -576,12 +576,12 @@ void copySelected(logicgates *selfp) { // copies and pastes selected components
     k /= m1 - 1;
     for (int i = 1; i < m1; i++) {
         list_append(self.components, self.components -> data[self.selected -> data[i].i], 's');
-        list_append(self.positions, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 2].d + self.mx / self.globalsize - self.screenX - j), 'd');
-        list_append(self.positions, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d + self.my / self.globalsize - self.screenY - k), 'd');
+        list_append(self.positions, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 2].d + self.mx / (self.globalsize * 0.75) - self.screenX - j), 'd');
+        list_append(self.positions, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d + self.my / (self.globalsize * 0.75) - self.screenY - k), 'd');
         list_append(self.positions, self.positions -> data[self.selected -> data[i].i * 3], 'd');
-        list_append(self.io, (unitype) 0, 'i');
-        list_append(self.io, (unitype) 0, 'i');
-        list_append(self.io, (unitype) 0, 'i');
+        list_append(self.io, (unitype) self.io -> data[self.selected -> data[i].i * 3 - 2], 'i');
+        list_append(self.io, (unitype) self.io -> data[self.selected -> data[i].i * 3 - 1], 'i');
+        list_append(self.io, (unitype) self.io -> data[self.selected -> data[i].i * 3 ], 'i');
         list_append(self.inpComp, self.inpComp -> data[self.selected -> data[i].i * 3 - 2], 'i');
         if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') > 0) {
             list_append(self.inpComp, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') - 1), 'i');
@@ -623,6 +623,13 @@ void copySelected(logicgates *selfp) { // copies and pastes selected components
 }
 void copyToBuffer(logicgates *selfp) {
     logicgates self = *selfp;
+
+    // clear the copy buffer
+    for (int i = 1; i < 6; i++) {
+        list_clear(self.copyBuffer -> data[i].r);
+        list_append(self.copyBuffer -> data[i].r, (unitype) 'n', 'c');
+    }
+
     self.sxmax = 0;
     self.sxmin = 0;
     self.symax = 0;
@@ -643,20 +650,21 @@ void copyToBuffer(logicgates *selfp) {
         list_append(self.copyBuffer -> data[2].r, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 2].d - j), 'd');
         list_append(self.copyBuffer -> data[2].r, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d - k), 'd');
         list_append(self.copyBuffer -> data[2].r, self.positions -> data[self.selected -> data[i].i * 3], 'd');
-        list_append(self.copyBuffer -> data[3].r, (unitype) 0, 'i');
-        list_append(self.copyBuffer -> data[3].r, (unitype) 0, 'i');
-        list_append(self.copyBuffer -> data[3].r, (unitype) 0, 'i');
+        list_append(self.copyBuffer -> data[3].r, self.io -> data[self.selected -> data[i].i * 3 - 2], 'i');
+        list_append(self.copyBuffer -> data[3].r, self.io -> data[self.selected -> data[i].i * 3 - 1], 'i');
+        list_append(self.copyBuffer -> data[3].r, self.io -> data[self.selected -> data[i].i * 3], 'i');
         list_append(self.copyBuffer -> data[4].r, self.inpComp -> data[self.selected -> data[i].i * 3 - 2], 'i');
+        // do not add l or 1, 1 will be subtracted later, as will the later l be added because it may change between copying and pasting
         if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') > 0) {
-            list_append(self.copyBuffer -> data[4].r, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') - 1), 'i');
+            list_append(self.copyBuffer -> data[4].r, (unitype) (list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i')), 'i');
             if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
-                list_append(self.copyBuffer -> data[4].r, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') - 1), 'i');
+                list_append(self.copyBuffer -> data[4].r, (unitype) (list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i')), 'i');
             } else {
                 list_append(self.copyBuffer -> data[4].r, (unitype) 0, 'i');
             }
         } else {
             if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
-                list_append(self.copyBuffer -> data[4].r, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') - 1), 'i');
+                list_append(self.copyBuffer -> data[4].r, (unitype) (list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i')), 'i');
             } else {
                 list_append(self.copyBuffer -> data[4].r, (unitype) 0, 'i');
             }
@@ -693,50 +701,34 @@ void pasteFromBuffer(logicgates *selfp) {
     double j = 0;
     double k = 0;
     int l = self.components -> length;
-    int m1 = self.selected -> length;
+    int m1 = self.copyBuffer -> data[1].r -> length; // length of copied data
     for (int i = 1; i < m1; i++) {
-        j += self.positions -> data[self.selected -> data[i].i * 3 - 2].d;
-        k += self.positions -> data[self.selected -> data[i].i * 3 - 1].d;
-    }
-    j /= m1 - 1;
-    k /= m1 - 1;
-    for (int i = 1; i < m1; i++) {
+        // component straight copied from copyBuffer
         list_append(self.components, self.copyBuffer -> data[1].r -> data[i], 's');
-        list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 2].d + self.mx / self.globalsize - self.screenX), 'd');
-        list_append(self.positions, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d + self.my / self.globalsize - self.screenY - k), 'd');
-        list_append(self.positions, self.positions -> data[self.selected -> data[i].i * 3], 'd');
-        list_append(self.io, (unitype) 0, 'i');
-        list_append(self.io, (unitype) 0, 'i');
-        list_append(self.io, (unitype) 0, 'i');
-        list_append(self.inpComp, self.inpComp -> data[self.selected -> data[i].i * 3 - 2], 'i');
-        if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') > 0) {
-            list_append(self.inpComp, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') - 1), 'i');
-            if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
-                list_append(self.inpComp, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') - 1), 'i');
-            } else {
-                list_append(self.inpComp, (unitype) 0, 'i');
-            }
-        } else {
-            if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
-                list_append(self.inpComp, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') - 1), 'i');
-            } else {
-                list_append(self.inpComp, (unitype) 0, 'i');
-            }
+        // positions must be translated by mouse and screen position to reflect their new location of pastement, center of mass has been precalculated
+        list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 2].d + self.mx / (self.globalsize * 0.75) - self.screenX), 'd');
+        list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 1].d + self.my / (self.globalsize * 0.75) - self.screenY), 'd');
+        list_append(self.positions, self.copyBuffer -> data[2].r -> data[i * 3], 'd');
+        list_append(self.io, (unitype) self.copyBuffer -> data[3].r -> data[i * 3 - 2], 'i');
+        list_append(self.io, (unitype) self.copyBuffer -> data[3].r -> data[i * 3 - 1], 'i');
+        list_append(self.io, (unitype) self.copyBuffer -> data[3].r -> data[i * 3], 'i');
+        // inpComp is more complicated
+        list_append(self.inpComp, (unitype) (l + self.copyBuffer -> data[4].r -> data[i * 3 - 2].i), 'i');
+        // the next two could be 0, if they are, keep them at 0
+        if (self.copyBuffer -> data[4].r -> data[i * 3 - 1].i == 0)
             list_append(self.inpComp, (unitype) 0, 'i');
-        }
+        else
+            list_append(self.inpComp, (unitype) (l + self.copyBuffer -> data[4].r -> data[i * 3 - 1].i - 1), 'i');
+        if (self.copyBuffer -> data[4].r -> data[i * 3].i == 0)
+            list_append(self.inpComp, (unitype) 0, 'i');
+        else
+            list_append(self.inpComp, (unitype) (l + self.copyBuffer -> data[4].r -> data[i * 3].i - 1), 'i');
     }
-    int n = self.components -> length - self.selected -> length;
-    list_t *wireTemp = list_init();
-    for (int i = 1; i < m1; i++) {
-        list_append(wireTemp, (unitype) (n + i), 'i');
-    }
-    int len = self.wiring -> length;
+    int len = self.copyBuffer -> data[5].r -> length;
     for (int i = 1; i < len; i += 3) {
-        if (list_count(self.selected, self.wiring -> data[i], 'i') > 0 && list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0) {
-            list_append(self.wiring, wireTemp -> data[list_find(self.selected, self.wiring -> data[i], 'i') - 1], 'i');
-            list_append(self.wiring, wireTemp -> data[list_find(self.selected, self.wiring -> data[i + 1], 'i') - 1], 'i');
-            list_append(self.wiring, (unitype) 0, 'i');
-        }
+        list_append(self.wiring, (unitype) (l + self.copyBuffer -> data[5].r -> data[i].i - 1), 'i');
+        list_append(self.wiring, (unitype) (l + self.copyBuffer -> data[5].r -> data[i + 1].i - 1), 'i');
+        list_append(self.wiring, (unitype) 0, 'i');
     }
     int i = self.components -> length - self.selected -> length + 1;
     list_clear(self.selected);
@@ -745,6 +737,11 @@ void pasteFromBuffer(logicgates *selfp) {
         list_append(self.selected, (unitype) i, 'i');
         i += 1;
     }
+    // clear the copy buffer (dont)
+    // for (int i = 1; i < 6; i++) {
+    //     list_clear(self.copyBuffer -> data[i].r);
+    //     list_append(self.copyBuffer -> data[i].r, (unitype) 'n', 'c');
+    // }
     *selfp = self;
 }
 double dmod(double input, double modulus) { // fmod that always returns a positive number
@@ -2056,8 +2053,9 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
     if (turtleKeyPressed(GLFW_KEY_C)) { // c key
         if (!self.keys[17]) {
             if (self.keys[21] == 1) {
-                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0))
-                    copyToBuffer(&self); // copy for later (ctrl+v)
+                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
+                    copyToBuffer(&self); // copy for later (ctrl+c)
+                }
             } else {
                 if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0))
                     copySelected(&self); // copy directly
@@ -2275,10 +2273,10 @@ int main(int argc, char *argv[]) {
     /* initialise ribbon */
     ribbonInit(window, "include/ribbonConfig.txt");
 
-    /* initialise zenitytools */
+    /* initialise zenityFileDialog */
     zenityFileDialogInit();
     zenityFileDialogAddExtension("txt"); // add txt to extension restrictions
-
+    
     int tps = 60; // ticks per second (locked to fps in this case)
     clock_t start, end;
     logicgates self;
