@@ -1580,7 +1580,17 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                 }
             } else {
                 if (self.my > 169) { // on ribbon
-                    self.mouseType = 1;
+                printf("on ribbon\n");
+                    self.mouseType = 3;
+                    self.FocalX = self.mx;
+                    self.FocalY = self.my;
+                    self.FocalCSX = self.screenX;
+                    self.FocalCSY = self.screenY;
+                    self.selecting = 0;
+                    self.sxmax = 0;
+                    self.symax = 0;
+                    self.sxmin = 0;
+                    self.symin = 0;
                     // asm(nop);
                 } else { // on sidebar
                     self.mouseType = 1;
@@ -2214,13 +2224,16 @@ void parseRibbonOutput(logicgates *selfp) {
                 printf("redo\n");
             }
             if (ribbonRender.output[2] == 3) { // cut
-
+                printf("cut\n");
+                copyToBuffer(&self);
             }
             if (ribbonRender.output[2] == 4) { // copy
-
+                printf("copy\n");
+                copyToBuffer(&self);
             }
             if (ribbonRender.output[2] == 5) { // paste
-
+                printf("paste\n");
+                pasteFromBuffer(&self);
             }
             if (ribbonRender.output[2] == 6) { // add file
                 if (zenityFileDialogPrompt(0, "") != -1) {
