@@ -737,11 +737,6 @@ void pasteFromBuffer(logicgates *selfp) {
         list_append(self.selected, (unitype) i, 'i');
         i += 1;
     }
-    // clear the copy buffer (dont)
-    // for (int i = 1; i < 6; i++) {
-    //     list_clear(self.copyBuffer -> data[i].r);
-    //     list_append(self.copyBuffer -> data[i].r, (unitype) 'n', 'c');
-    // }
     *selfp = self;
 }
 double dmod(double input, double modulus) { // fmod that always returns a positive number
@@ -2273,7 +2268,7 @@ int main(int argc, char *argv[]) {
     /* initialise ribbon */
     ribbonInit(window, "include/ribbonConfig.txt");
 
-    /* initialise win32Tools */
+    /* initialise win32tools */
     win32ToolsInit();
     win32FileDialogAddExtension("txt"); // add txt to extension restrictions
     

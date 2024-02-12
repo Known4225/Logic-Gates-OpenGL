@@ -737,11 +737,6 @@ void pasteFromBuffer(logicgates *selfp) {
         list_append(self.selected, (unitype) i, 'i');
         i += 1;
     }
-    // clear the copy buffer (dont)
-    // for (int i = 1; i < 6; i++) {
-    //     list_clear(self.copyBuffer -> data[i].r);
-    //     list_append(self.copyBuffer -> data[i].r, (unitype) 'n', 'c');
-    // }
     *selfp = self;
 }
 double dmod(double input, double modulus) { // fmod that always returns a positive number
@@ -1406,7 +1401,7 @@ void renderSidebar(logicgates *selfp, char side) { // this function draws the si
     self.boundXmin = -241;
     self.boundXmax = 241;
     self.boundYmin = -181;
-    self.boundYmax = 181;
+    self.boundYmax = 169; // cut off ribbon
     if (side == 1 || side == 2) {
         double i = 155 - (side % 2) * 305;
         if (i > 0) {
@@ -1493,7 +1488,7 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
             self.keys[0] = 1;
             if (self.mx > self.boundXmin && self.mx < self.boundXmax && self.my > self.boundYmin && self.my < self.boundYmax) {
                 self.mouseType = 0;
-                if (!(self.selecting == 2) && !(list_count(self.selected, (unitype) self.hlgcomp, 'i') > 0) && !((self.keys[1] || self.wireHold == 1) && !(self.hlgcomp == 0))) {
+                if (!(self.selecting == 2) && !(list_count(self.selected, (unitype) self.hlgcomp, 'i') > 0) && !((self.keys[1] || self.wireHold == 1) && !(self.hlgcomp == 0))) { // deselect
                     self.wireHold = 0;
                     self.selecting = 0;
                     list_clear(self.selectOb);
@@ -1584,32 +1579,37 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                     }
                 }
             } else {
-                self.mouseType = 1;
-                self.FocalX = self.mx;
-                self.FocalY = self.my;
-                self.FocalCSX = self.screenX;
-                self.FocalCSY = self.screenY;
-                self.selecting = 0;
-                self.sxmax = 0;
-                self.symax = 0;
-                self.sxmin = 0;
-                self.symin = 0;
-                list_clear(self.selectOb);
-                list_append(self.selectOb, (unitype) "null", 's');
-                list_clear(self.selected);
-                list_append(self.selected, (unitype) "null", 's');
-                if (self.mx > 168) {
-                    if (self.wireHold == 1)
-                        self.wireHold = 0;
-                    else
-                        self.wireHold = 1;
-                } else {
-                    if (self.mx > -220) {
-                        char *holdingTemp = self.compSlots -> data[(int) round((self.mx + 245) / 48) * 2 - 1].s;
-                        if (strcmp(self.holding, holdingTemp) == 0) {
-                            self.holding = "a";
-                        } else {
-                            self.holding = holdingTemp;
+                if (self.my > 169) { // on ribbon
+                    self.mouseType = 1;
+                    // asm(nop);
+                } else { // on sidebar
+                    self.mouseType = 1;
+                    self.FocalX = self.mx;
+                    self.FocalY = self.my;
+                    self.FocalCSX = self.screenX;
+                    self.FocalCSY = self.screenY;
+                    self.selecting = 0;
+                    self.sxmax = 0;
+                    self.symax = 0;
+                    self.sxmin = 0;
+                    self.symin = 0;
+                    list_clear(self.selectOb);
+                    list_append(self.selectOb, (unitype) "null", 's');
+                    list_clear(self.selected);
+                    list_append(self.selected, (unitype) "null", 's');
+                    if (self.mx > 168) {
+                        if (self.wireHold == 1)
+                            self.wireHold = 0;
+                        else
+                            self.wireHold = 1;
+                    } else {
+                        if (self.mx > -220) {
+                            char *holdingTemp = self.compSlots -> data[(int) round((self.mx + 245) / 48) * 2 - 1].s;
+                            if (strcmp(self.holding, holdingTemp) == 0) {
+                                self.holding = "a";
+                            } else {
+                                self.holding = holdingTemp;
+                            }
                         }
                     }
                 }
