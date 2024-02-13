@@ -1,4 +1,3 @@
-#include "include/turtle.h"
 #include "include/ribbon.h"
 #include "include/zenityFileDialog.h"
 #include <time.h>
@@ -557,6 +556,87 @@ void wireSymbol(logicgates *selfp, double x, double y, double size, double rot) 
     turtleGoto(x + 12 * size, y + 9 * size);
     turtlePenUp();
 }
+void deleteComp(logicgates *selfp, int index) { // deletes a component
+    /* bad foresight compelled me to identify a component's ID
+    based on the index of it's position in the self.components array
+    
+    This means that when a component is deleted all components with an ID greater than that one has
+    themselves reassigned a new ID. This means that every reference to that component (in the other data lists)
+    must be updated to the new ID.
+
+    This allows fast access to a component's data by just given its ID, because it's an array lookup
+    but this is hell for deleting, and if there are any references to a component via its ID anywhere in
+    the program it must be updated.
+
+    yknow having these "components" with associated "data" is something that perhaps, just maybe,
+    could've had its own type.
+
+    We unfortunately live with our decisions, somehow this seemed like the best way to do this at the time, 
+    and to be fair it was written in scratch
+    */
+    logicgates self = *selfp;
+    int len = self.selected -> length;
+    for (int i = 1; i < len; i++) {
+        if (self.selected -> data[i].i > index)
+            self.selected -> data[i] = (unitype) (self.selected -> data[i].i - 1);
+    }
+    int i = 1;
+    int k = (int) round((self.wiring -> length - 1) / 3);
+    for (int j = 0; j < k; j++) {
+        if (self.wiring -> data[i].i == index || self.wiring -> data[i + 1].i == index) {
+            list_delete(self.wiring, i);
+            list_delete(self.wiring, i);
+            list_delete(self.wiring, i);
+        } else {
+            if (self.wiring -> data[i].i > index)
+                self.wiring -> data[i] = (unitype) (self.wiring -> data[i].i - 1);
+            if (self.wiring -> data[i + 1].i > index)
+                self.wiring -> data[i + 1] = (unitype) (self.wiring -> data[i + 1].i - 1);
+            i += 3;
+        }
+    }
+    i = 2;
+    k = (int) round((self.inpComp -> length - 1) / 3);
+    for (int j = 0; j < k; j++) {
+        if (self.inpComp -> data[i].i == index || self.inpComp -> data[i + 1].i == index) {
+            if (self.inpComp -> data[i].i == index) {
+                if (!(self.inpComp -> data[i + 1].i == 0)) {
+                    if (self.inpComp -> data[i + 1].i > index)
+                        self.inpComp -> data[i] = (unitype) (self.inpComp -> data[i + 1].i - 1);
+                    else
+                        self.inpComp -> data[i] = self.inpComp -> data[i + 1];
+                    self.inpComp -> data[i + 1] = (unitype) 0;
+                    self.io -> data[i] = (unitype) 0;
+                } else {    
+                    self.inpComp -> data[i] = (unitype) 0;
+                    self.inpComp -> data[i + 1] = (unitype) 0;
+                }
+            } else {
+                if (self.inpComp -> data[i].i > index)
+                    self.inpComp -> data[i] = (unitype) (self.inpComp -> data[i].i - 1);
+                self.inpComp -> data[i + 1] = (unitype) 0;
+                self.io -> data[i] = (unitype) 0;
+            }
+        } else {
+            if (self.inpComp -> data[i].i > index)
+                self.inpComp -> data[i] = (unitype) (self.inpComp -> data[i].i - 1);
+            if (self.inpComp -> data[i + 1].i > index)
+                self.inpComp -> data[i + 1] = (unitype) (self.inpComp -> data[i + 1].i - 1);
+        }
+        i += 3;
+    }
+    list_delete(self.components, index);
+    list_delete(self.positions, index * 3 - 2);
+    list_delete(self.positions, index * 3 - 2);
+    list_delete(self.positions, index * 3 - 2);
+    list_delete(self.io, index * 3 - 2);
+    list_delete(self.io, index * 3 - 2);
+    list_delete(self.io, index * 3 - 2);
+    list_delete(self.inpComp, index * 3 - 2);
+    list_delete(self.inpComp, index * 3 - 2);
+    list_delete(self.inpComp, index * 3 - 2);
+    *selfp = self;
+}
 void copySelected(logicgates *selfp) { // copies and pastes selected components
     logicgates self = *selfp;
     self.sxmax = 0;
@@ -621,7 +701,7 @@ void copySelected(logicgates *selfp) { // copies and pastes selected components
     }
     *selfp = self;
 }
-void copyToBuffer(logicgates *selfp) {
+void copyToBuffer(logicgates *selfp, char cut) {
     logicgates self = *selfp;
 
     // clear the copy buffer
@@ -689,9 +769,19 @@ void copyToBuffer(logicgates *selfp) {
             list_append(self.copyBuffer -> data[5].r, (unitype) 0, 'i');
         }
     }
+    if (cut) {
+        len = self.selected -> length - 1;
+        for (int i = 0; i < len; i++) {
+            deleteComp(&self, self.selected -> data[1].i);
+            list_delete(self.selected, 1);
+        }
+        self.selecting = 0;
+        list_clear(self.selectOb),
+        list_append(self.selectOb, (unitype) "null", 's');
+    }
     *selfp = self;
 }
-void pasteFromBuffer(logicgates *selfp) {
+void pasteFromBuffer(logicgates *selfp, char toMouse) {
     logicgates self = *selfp;
     self.sxmax = 0;
     self.sxmin = 0;
@@ -706,8 +796,15 @@ void pasteFromBuffer(logicgates *selfp) {
         // component straight copied from copyBuffer
         list_append(self.components, self.copyBuffer -> data[1].r -> data[i], 's');
         // positions must be translated by mouse and screen position to reflect their new location of pastement, center of mass has been precalculated
-        list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 2].d + self.mx / (self.globalsize * 0.75) - self.screenX), 'd');
-        list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 1].d + self.my / (self.globalsize * 0.75) - self.screenY), 'd');
+        if (toMouse) {
+            list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 2].d + self.mx / (self.globalsize * 0.75) - self.screenX), 'd');
+            list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 1].d + self.my / (self.globalsize * 0.75) - self.screenY), 'd');
+        } else {
+            // to center of screen
+            list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 2].d - self.screenX), 'd');
+            list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 1].d - self.screenY), 'd');
+        }
+        
         list_append(self.positions, self.copyBuffer -> data[2].r -> data[i * 3], 'd');
         list_append(self.io, (unitype) self.copyBuffer -> data[3].r -> data[i * 3 - 2], 'i');
         list_append(self.io, (unitype) self.copyBuffer -> data[3].r -> data[i * 3 - 1], 'i');
@@ -730,7 +827,7 @@ void pasteFromBuffer(logicgates *selfp) {
         list_append(self.wiring, (unitype) (l + self.copyBuffer -> data[5].r -> data[i + 1].i - 1), 'i');
         list_append(self.wiring, (unitype) 0, 'i');
     }
-    int i = self.components -> length - self.selected -> length + 1;
+    int i = self.components -> length - m1 + 1;
     list_clear(self.selected);
     list_append(self.selected, (unitype) "null", 's');
     for (int o = 1; o < m1; o++) {
@@ -846,87 +943,6 @@ void selectionBox(logicgates *selfp, double x1, double y1, double x2, double y2)
         self.symax = y2;
         self.symin = y1;
     }
-    *selfp = self;
-}
-void deleteComp(logicgates *selfp, int index) { // deletes a component
-    /* bad foresight compelled me to identify a component's ID
-    based on the index of it's position in the self.components array
-    
-    This means that when a component is deleted all components with an ID greater than that one has
-    themselves reassigned a new ID. This means that every reference to that component (in the other data lists)
-    must be updated to the new ID.
-
-    This allows fast access to a component's data by just given its ID, because it's an array lookup
-    but this is hell for deleting, and if there are any references to a component via its ID anywhere in
-    the program it must be updated.
-
-    yknow having these "components" with associated "data" is something that perhaps, just maybe,
-    could've had its own type.
-
-    We unfortunately live with our decisions, somehow this seemed like the best way to do this at the time, 
-    and to be fair it was written in scratch
-    */
-    logicgates self = *selfp;
-    int len = self.selected -> length;
-    for (int i = 1; i < len; i++) {
-        if (self.selected -> data[i].i > index)
-            self.selected -> data[i] = (unitype) (self.selected -> data[i].i - 1);
-    }
-    int i = 1;
-    int k = (int) round((self.wiring -> length - 1) / 3);
-    for (int j = 0; j < k; j++) {
-        if (self.wiring -> data[i].i == index || self.wiring -> data[i + 1].i == index) {
-            list_delete(self.wiring, i);
-            list_delete(self.wiring, i);
-            list_delete(self.wiring, i);
-        } else {
-            if (self.wiring -> data[i].i > index)
-                self.wiring -> data[i] = (unitype) (self.wiring -> data[i].i - 1);
-            if (self.wiring -> data[i + 1].i > index)
-                self.wiring -> data[i + 1] = (unitype) (self.wiring -> data[i + 1].i - 1);
-            i += 3;
-        }
-    }
-    i = 2;
-    k = (int) round((self.inpComp -> length - 1) / 3);
-    for (int j = 0; j < k; j++) {
-        if (self.inpComp -> data[i].i == index || self.inpComp -> data[i + 1].i == index) {
-            if (self.inpComp -> data[i].i == index) {
-                if (!(self.inpComp -> data[i + 1].i == 0)) {
-                    if (self.inpComp -> data[i + 1].i > index)
-                        self.inpComp -> data[i] = (unitype) (self.inpComp -> data[i + 1].i - 1);
-                    else
-                        self.inpComp -> data[i] = self.inpComp -> data[i + 1];
-                    self.inpComp -> data[i + 1] = (unitype) 0;
-                    self.io -> data[i] = (unitype) 0;
-                } else {    
-                    self.inpComp -> data[i] = (unitype) 0;
-                    self.inpComp -> data[i + 1] = (unitype) 0;
-                }
-            } else {
-                if (self.inpComp -> data[i].i > index)
-                    self.inpComp -> data[i] = (unitype) (self.inpComp -> data[i].i - 1);
-                self.inpComp -> data[i + 1] = (unitype) 0;
-                self.io -> data[i] = (unitype) 0;
-            }
-        } else {
-            if (self.inpComp -> data[i].i > index)
-                self.inpComp -> data[i] = (unitype) (self.inpComp -> data[i].i - 1);
-            if (self.inpComp -> data[i + 1].i > index)
-                self.inpComp -> data[i + 1] = (unitype) (self.inpComp -> data[i + 1].i - 1);
-        }
-        i += 3;
-    }
-    list_delete(self.components, index);
-    list_delete(self.positions, index * 3 - 2);
-    list_delete(self.positions, index * 3 - 2);
-    list_delete(self.positions, index * 3 - 2);
-    list_delete(self.io, index * 3 - 2);
-    list_delete(self.io, index * 3 - 2);
-    list_delete(self.io, index * 3 - 2);
-    list_delete(self.inpComp, index * 3 - 2);
-    list_delete(self.inpComp, index * 3 - 2);
-    list_delete(self.inpComp, index * 3 - 2);
     *selfp = self;
 }
 void hlgcompset(logicgates *selfp) { // sets hlgcomp to whatever component the mouse is hovering over
@@ -1580,7 +1596,7 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                 }
             } else {
                 if (self.my > 169) { // on ribbon
-                printf("on ribbon\n");
+                    // printf("on ribbon\n");
                     self.mouseType = 3;
                     self.FocalX = self.mx;
                     self.FocalY = self.my;
@@ -1591,7 +1607,6 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                     self.symax = 0;
                     self.sxmin = 0;
                     self.symin = 0;
-                    // asm(nop);
                 } else { // on sidebar
                     self.mouseType = 1;
                     self.FocalX = self.mx;
@@ -1695,31 +1710,33 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                     }
                 }
             }
-            if (self.hglmove == 0) {
-                if (self.keys[1] || self.wireHold == 1) {
-                    self.FocalX = self.mx;
-                    self.FocalY = self.my;
-                    self.FocalCSX = self.screenX;
-                    self.FocalCSY = self.screenY;
-                    self.wiringEnd = self.hlgcomp;
-                } else {
-                    if (strcmp(self.holding, "a") == 0) {
-                        self.screenX = (self.mx - self.FocalX) / self.globalsize + self.FocalCSX;
-                        self.screenY = (self.my - self.FocalY) / self.globalsize + self.FocalCSY;
-                    }
-                }
-            } else {
-                if (self.selecting == 3) {
-                    double anchorX = self.positions -> data[self.hglmove * 3 - 2].d;
-                    double anchorY = self.positions -> data[self.hglmove * 3 - 1].d;
-                    int len = self.selected -> length;
-                    for (int i = 1; i < len; i++) {
-                        self.positions -> data[self.selected -> data[i].i * 3 - 2] = (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 2].d + self.mx / self.globalsize - self.screenX + self.offX - anchorX);
-                        self.positions -> data[self.selected -> data[i].i * 3 - 1] = (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d + self.my / self.globalsize - self.screenY + self.offY - anchorY);
+            if (self.mouseType != 3) {
+                if (self.hglmove == 0) {
+                    if (self.keys[1] || self.wireHold == 1) {
+                        self.FocalX = self.mx;
+                        self.FocalY = self.my;
+                        self.FocalCSX = self.screenX;
+                        self.FocalCSY = self.screenY;
+                        self.wiringEnd = self.hlgcomp;
+                    } else {
+                        if (strcmp(self.holding, "a") == 0) {
+                            self.screenX = (self.mx - self.FocalX) / self.globalsize + self.FocalCSX;
+                            self.screenY = (self.my - self.FocalY) / self.globalsize + self.FocalCSY;
+                        }
                     }
                 } else {
-                    self.positions -> data[self.hglmove * 3 - 2] = (unitype) (self.mx / self.globalsize - self.screenX + self.offX);
-                    self.positions -> data[self.hglmove * 3 - 1] = (unitype) (self.my / self.globalsize - self.screenY + self.offY);
+                    if (self.selecting == 3) {
+                        double anchorX = self.positions -> data[self.hglmove * 3 - 2].d;
+                        double anchorY = self.positions -> data[self.hglmove * 3 - 1].d;
+                        int len = self.selected -> length;
+                        for (int i = 1; i < len; i++) {
+                            self.positions -> data[self.selected -> data[i].i * 3 - 2] = (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 2].d + self.mx / self.globalsize - self.screenX + self.offX - anchorX);
+                            self.positions -> data[self.selected -> data[i].i * 3 - 1] = (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d + self.my / self.globalsize - self.screenY + self.offY - anchorY);
+                        }
+                    } else {
+                        self.positions -> data[self.hglmove * 3 - 2] = (unitype) (self.mx / self.globalsize - self.screenX + self.offX);
+                        self.positions -> data[self.hglmove * 3 - 1] = (unitype) (self.my / self.globalsize - self.screenY + self.offY);
+                    }
                 }
             }
         }
@@ -1939,7 +1956,10 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
     }
     if (turtleKeyPressed(GLFW_KEY_X)) { // x key
         if (!self.keys[7]) {
-            if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
+            if (self.keys[21]) {
+                // cut
+                copyToBuffer(&self, 1);
+            } else if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
                 int len = self.selected -> length - 1;
                 for (int i = 0; i < len; i++) {
                     deleteComp(&self, self.selected -> data[1].i);
@@ -1959,10 +1979,20 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
     }
     if (turtleKeyPressed(GLFW_KEY_A) || turtleKeyPressed(GLFW_KEY_3)) { // a and 3
         if (!self.keys[8]) {
-            if (strcmp(self.holding, "AND") == 0)
-                self.holding = "a";
-            else
-                self.holding = "AND";
+            if (self.keys[21]) {
+                // select all
+                self.selecting = 2;
+                list_clear(self.selected);
+                list_append(self.selected, (unitype) "null", 's');
+                for (int i = 0; i < self.components -> length; i++) {
+                    list_append(self.selected, (unitype) i, 'i');
+                }
+            } else {
+                if (strcmp(self.holding, "AND") == 0)
+                    self.holding = "a";
+                else
+                    self.holding = "AND";
+            }
         }
         self.keys[8] = 1;
     } else {
@@ -2064,7 +2094,7 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
         if (!self.keys[17]) {
             if (self.keys[21] == 1) {
                 if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
-                    copyToBuffer(&self); // copy for later (ctrl+c)
+                    copyToBuffer(&self, 0); // copy for later (ctrl+c)
                 }
             } else {
                 if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0))
@@ -2115,7 +2145,7 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
     if (turtleKeyPressed(GLFW_KEY_V)) { // for ctrl+v
         if (self.keys[22] == 0 && self.keys[21] == 1) {
             // ctrl+v
-            pasteFromBuffer(&self);
+            pasteFromBuffer(&self, 1);
         }
         self.keys[22] = 1;
     } else {
@@ -2225,15 +2255,15 @@ void parseRibbonOutput(logicgates *selfp) {
             }
             if (ribbonRender.output[2] == 3) { // cut
                 printf("cut\n");
-                copyToBuffer(&self);
+                copyToBuffer(&self, 1);
             }
             if (ribbonRender.output[2] == 4) { // copy
                 printf("copy\n");
-                copyToBuffer(&self);
+                copyToBuffer(&self, 0);
             }
             if (ribbonRender.output[2] == 5) { // paste
                 printf("paste\n");
-                pasteFromBuffer(&self);
+                pasteFromBuffer(&self, 0);
             }
             if (ribbonRender.output[2] == 6) { // add file
                 if (zenityFileDialogPrompt(0, "") != -1) {
@@ -2403,11 +2433,11 @@ int main(int argc, char *argv[]) {
                 }
             }
         }
+        ribbonDraw(); // do ribbon before mouseTick
+        parseRibbonOutput(&self);
         mouseTick(&self);
         hotkeyTick(&self);
         scrollTick(&self);
-        ribbonDraw();
-        parseRibbonOutput(&self);
         turtleUpdate(); // update the screen
         end = clock();
         if (frame % 60 == 0) {
