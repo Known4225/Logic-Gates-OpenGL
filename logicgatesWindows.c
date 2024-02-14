@@ -51,7 +51,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     double selectY;
     double selectY2;
     list_t *compSlots; // a lookup table for which components have two inputs vs one
-    char wireHold; // i dont know
+    char wireHold; // whether you are toggled for wiring (hold space or click the wire symbol)
     int wiringStart; // the component ID of the start of a (under construction) wire
     int wiringEnd; // the component ID of the end of a wire at the moment it is constructed
     
@@ -62,7 +62,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     list_t *io; // list of binary inputs and outputs of a component (3 items for each component, 2 inputs followed by the output of the component (either a 0 or 1))
     list_t *wiring; // list of component connections (3 items per connection, it goes sender (ID), reciever (ID), powered (0 or 1))
     
-    char keys[24];
+    char keys[28];
     list_t *deleteQueue; // when many components are deleted, they are queued here
     list_t *selected; // list of selected component IDs
     list_t *selectOb; // list of selected component IDs (but different?)
@@ -848,11 +848,9 @@ void addUndo(logicgates *selfp) { // adds current state of program to undo list
         list_delete(self.undoBuffer, self.undoBuffer -> length - 1);
     }
     if (self.undoBuffer -> length == self.undoIndex) {
-        printf("this is good\n");
+        // printf("this is good\n");
     }
     list_append(self.undoBuffer, (unitype) list_init(), 'r');
-    // printf("accessing %d\n", self.undoIndex);
-    // list_print(self.undoBuffer);
     list_append(self.undoBuffer -> data[self.undoIndex].r, (unitype) (int) self.components -> length, 'i');
     // packs data
     for (int i = 1; i < self.components -> length; i++) {
@@ -872,13 +870,16 @@ void addUndo(logicgates *selfp) { // adds current state of program to undo list
     }
     *selfp = self;
 }
-void undo(logicgates *selfp) { // undo
+void transferUndoBuffer(logicgates *selfp) { // transfers undoBuffer data to the working lists
     logicgates self = *selfp;
-    if (self.undoIndex > 1) {
-        self.undoIndex--;
-    }
-    printf("accessing %d\n", self.undoIndex);
-    list_print(self.undoBuffer);
+    // no selecting when undoing
+    self.wireHold = 0; // this literally does nothing. Like it doesn't even set wireHold to 0 i dont know why
+    self.selecting = 0;
+    list_clear(self.selectOb);
+    list_append(self.selectOb, (unitype) "null", 's');
+    list_clear(self.selected);
+    list_append(self.selected, (unitype) "null", 's');
+
     int numComp = self.undoBuffer -> data[self.undoIndex].r -> data[0].i;
     int globIndex = 1;
     // components
@@ -891,47 +892,51 @@ void undo(logicgates *selfp) { // undo
     // positions
     list_clear(self.positions);
     list_append(self.positions, (unitype) 'n', 'c');
-    for (int i = 0; i < numComp; i++) {
+    for (int i = 1; i < numComp; i++) {
         list_append(self.positions, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex], 'd');
         list_append(self.positions, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 1], 'd');
-        list_append(self.positions, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 1], 'd');
+        list_append(self.positions, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 2], 'd');
         globIndex += 3;
     }
     // io
     list_clear(self.io);
     list_append(self.io, (unitype) 'n', 'c');
-    for (int i = 0; i < numComp; i++) {
+    for (int i = 1; i < numComp; i++) {
         list_append(self.io, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex], 'i');
         list_append(self.io, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 1], 'i');
-        list_append(self.io, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 1], 'i');
+        list_append(self.io, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 2], 'i');
         globIndex += 3;
     }
     // inpComp
     list_clear(self.inpComp);
     list_append(self.inpComp, (unitype) 'n', 'c');
-    for (int i = 0; i < numComp; i++) {
+    for (int i = 1; i < numComp; i++) {
         list_append(self.inpComp, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex], 'i');
         list_append(self.inpComp, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 1], 'i');
-        list_append(self.inpComp, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 1], 'i');
+        list_append(self.inpComp, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 2], 'i');
         globIndex += 3;
     }
-    printf("got to wiring %d\n", globIndex);
     // wiring
     list_clear(self.wiring);
     list_append(self.wiring, (unitype) 'n', 'c');
     while (globIndex < self.undoBuffer -> data[self.undoIndex].r -> length) {
         list_append(self.wiring, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex], 'i');
         list_append(self.wiring, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 1], 'i');
-        list_append(self.wiring, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 1], 'i');
+        list_append(self.wiring, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 2], 'i');
         globIndex += 3;
     }
-    list_print(self.wiring);
-    *selfp = self;
+}
+void undo(logicgates *selfp) { // undo
+    if (selfp -> undoIndex > 1) {
+        selfp -> undoIndex--;
+    }
+    transferUndoBuffer(selfp);
 }
 void redo(logicgates *selfp) {
-    logicgates self = *selfp;
-
-    *selfp = self;
+    if (selfp -> undoIndex + 1 < selfp -> undoBuffer -> length) {
+        selfp -> undoIndex++;
+    }
+    transferUndoBuffer(selfp);
 }
 double dmod(double input, double modulus) { // fmod that always returns a positive number
     double out = fmod(input, modulus);
@@ -2067,9 +2072,9 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
                 for (int i = 0; i < len; i++) {
                     deleteComp(&self, self.selected -> data[1].i);
                     list_delete(self.selected, 1);
-                    // update undo
-                    addUndo(&self);
                 }
+                // update undo
+                addUndo(&self);
                 self.selecting = 0;
                 list_clear(self.selectOb),
                 list_append(self.selectOb, (unitype) "null", 's');
@@ -2205,8 +2210,11 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
                     copyToBuffer(&self, 0); // copy for later (ctrl+c)
                 }
             } else {
-                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0))
+                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
                     copySelected(&self); // copy directly
+                    // update undo
+                    addUndo(&self);
+                }
             }    
         }
         self.keys[17] = 1;
@@ -2273,16 +2281,88 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
             // ctrl+y
             redo(&self);
         }
+        self.keys[23] = 1;
+    } else {
+        self.keys[23] = 0;
+    }
+    // rotation using sideways arrows
+    if (turtleKeyPressed(GLFW_KEY_RIGHT)) {
+        self.keys[24] = 1;
+        if (strcmp(self.holding, "a") != 0 && strcmp(self.holding, "b") != 0) {
+            self.holdingAng += 0.5 * self.rotateSpeed;
+        } else {
+            if (self.selecting > 1) {
+                // if space key pressed
+                if (self.keys[1] == 1) {
+                    rotateSelected(&self, -0.5 * self.rotateSpeed);
+                } else {
+                    int i = 1;
+                    for (int j = 0; j < self.selected -> length - 1; j++) {
+                        self.positions -> data[self.selected -> data[i].i * 3] = (unitype) (self.positions -> data[self.selected -> data[i].i * 3].d + 0.5 * self.rotateSpeed);
+                        if (self.positions -> data[self.selected -> data[i].i * 3].d > 360)
+                            self.positions -> data[self.selected -> data[i].i * 3] = (unitype) (self.positions -> data[self.selected -> data[i].i * 3].d - 360);
+                        i += 1;
+                    }
+                }
+            } else {
+                if (self.hlgcomp != 0) {
+                    self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d + 0.5 * self.rotateSpeed);
+                    if (self.positions -> data[self.hlgcomp * 3].d > 360)
+                        self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d - 360);
+                }
+            }
+        }
+    } else {
+        if (self.keys[24]) {
+            // update undo
+            addUndo(&self);
+            self.keys[24] = 0;
+        }
+    }
+    if (turtleKeyPressed(GLFW_KEY_LEFT)) {
+        self.keys[25] = 1;
+        if (strcmp(self.holding, "a") != 0 && strcmp(self.holding, "b") != 0) {
+            self.holdingAng -= 0.5 * self.rotateSpeed;
+        } else {
+            if (self.selecting > 1) {
+                // if space key pressed
+                if (self.keys[1] == 1) {
+                    rotateSelected(&self, 0.5 * self.rotateSpeed);
+                } else {
+                    int i = 1;
+                    for (int j = 0; j < self.selected -> length - 1; j++) {
+                        self.positions -> data[self.selected -> data[i].i * 3] = (unitype) (self.positions -> data[self.selected -> data[i].i * 3].d - 0.5 * self.rotateSpeed);
+                        if (self.positions -> data[self.selected -> data[i].i * 3].d < 0)
+                            self.positions -> data[self.selected -> data[i].i * 3] = (unitype) (self.positions -> data[self.selected -> data[i].i * 3].d + 360);
+                        i += 1;
+                    }
+                }
+            } else {
+                if (self.hlgcomp != 0) {
+                    self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d - 0.5 * self.rotateSpeed);
+                    if (self.positions -> data[self.hlgcomp * 3].d < 0)
+                        self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d + 360);
+                }
+            }
+        }
+    } else {
+        if (self.keys[25]) {
+            // update undo
+            addUndo(&self);
+            self.keys[25] = 0;
+        }
     }
     *selfp = self;
 }
 void scrollTick(logicgates *selfp) { // all the scroll wheel functionality is handled here
     logicgates self = *selfp;
     if (self.mw > 0) {
-        if (self.keys[1]) {
+        if (self.keys[1] || turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
             if (self.rotateCooldown == 1) {
                 if (self.selecting > 1) {
                     rotateSelected(&self, 90);
+                    // update undo
+                    addUndo(&self);
                 } else {
                     if (!(strcmp(self.holding, "a") == 0) && !(strcmp(self.holding, "b") == 0)) {
                         self.holdingAng -= 90;
@@ -2291,6 +2371,8 @@ void scrollTick(logicgates *selfp) { // all the scroll wheel functionality is ha
                             self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d - 90);
                             if (self.positions -> data[self.hlgcomp * 3].d < 0)
                                 self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d + 360);
+                            // update undo
+                            addUndo(&self);
                         }
                     }
                 }
@@ -2303,10 +2385,12 @@ void scrollTick(logicgates *selfp) { // all the scroll wheel functionality is ha
         }
     }
     if (self.mw < 0) {
-        if (self.keys[1]) {
+        if (self.keys[1] || turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
             if (self.rotateCooldown == 1) {
                 if (self.selecting > 1) {
                     rotateSelected(&self, -90);
+                    // update undo
+                    addUndo(&self);
                 } else {
                     if (!(strcmp(self.holding, "a") == 0) && !(strcmp(self.holding, "b") == 0)) {
                         self.holdingAng += 90;
@@ -2315,6 +2399,8 @@ void scrollTick(logicgates *selfp) { // all the scroll wheel functionality is ha
                             self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d + 90);
                             if (self.positions -> data[self.hlgcomp * 3].d > 360)
                                 self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d - 360);
+                            // update undo
+                            addUndo(&self);
                         }
                     }
                 }
@@ -2366,31 +2452,39 @@ void parseRibbonOutput(logicgates *selfp) {
                     // printf("Loaded data from: %s\n", win32FileDialog.filename);
                     clearAll(&self);
                     import(&self, win32FileDialog.filename);
+                    // update undo
+                    addUndo(&self);
                 }
             }
         }
         if (ribbonRender.output[1] == 1) { // edit
             if (ribbonRender.output[2] == 1) { // undo
-                printf("undo\n");
                 undo(&self);
             }
             if (ribbonRender.output[2] == 2) { // redo
-                printf("redo\n");
                 redo(&self);
             }
             if (ribbonRender.output[2] == 3) { // cut
                 copyToBuffer(&self, 1);
+                // update undo
+                addUndo(&self);
             }
             if (ribbonRender.output[2] == 4) { // copy
                 copyToBuffer(&self, 0);
+                // update undo
+                addUndo(&self);
             }
             if (ribbonRender.output[2] == 5) { // paste
                 pasteFromBuffer(&self, 0);
+                // update undo
+                addUndo(&self);
             }
-            if (ribbonRender.output[2] == 6) { // add file
+            if (ribbonRender.output[2] == 6) { // add file (still somewhat broken)
                 if (win32FileDialogPrompt(0, "") != -1) {
                     // printf("Loaded data from: %s\n", win32FileDialog.filename);
                     import(&self, win32FileDialog.filename);
+                    // update undo
+                    addUndo(&self);
                 }
             }
         }
@@ -2438,7 +2532,7 @@ int main(int argc, char *argv[]) {
     /* initialise ribbon */
     ribbonInit(window, "include/ribbonConfig.txt");
 
-    /* initialise win32tools */
+    /* initialise win32Tools */
     win32ToolsInit();
     win32FileDialogAddExtension("txt"); // add txt to extension restrictions
     
@@ -2453,6 +2547,8 @@ int main(int argc, char *argv[]) {
         import(&self, argv[1]);
         strcpy(win32FileDialog.filename, argv[1]);
     }
+    // update undo
+    addUndo(&self);
     int frame = 0;
     while (turtle.close == 0) {
         start = clock(); // for frame syncing
@@ -2485,6 +2581,7 @@ int main(int argc, char *argv[]) {
         renderWire(&self, self.globalsize);
         renderSidebar(&self, self.sidebar);
         hlgcompset(&self);
+        // render holding component
         turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
         if (strcmp(self.holding, "POWER") == 0)
             POWER(&self, self.mx, self.my, self.globalsize, self.holdingAng, 0, 0);
@@ -2502,59 +2599,6 @@ int main(int argc, char *argv[]) {
             NAND(&self, self.mx, self.my, self.globalsize, self.holdingAng);
         if (strcmp(self.holding, "BUFFER") == 0)
             BUFFER(&self, self.mx, self.my, self.globalsize, self.holdingAng);
-        // rotation using sideways arrows
-        if (turtleKeyPressed(GLFW_KEY_RIGHT)) {
-            if (strcmp(self.holding, "a") != 0 && strcmp(self.holding, "b") != 0) {
-                self.holdingAng += 0.5 * self.rotateSpeed;
-            } else {
-                if (self.selecting > 1) {
-                    // if space key pressed
-                    if (self.keys[1] == 1) {
-                        rotateSelected(&self, -0.5 * self.rotateSpeed);
-                    } else {
-                        int i = 1;
-                        for (int j = 0; j < self.selected -> length - 1; j++) {
-                            self.positions -> data[self.selected -> data[i].i * 3] = (unitype) (self.positions -> data[self.selected -> data[i].i * 3].d + 0.5 * self.rotateSpeed);
-                            if (self.positions -> data[self.selected -> data[i].i * 3].d > 360)
-                                self.positions -> data[self.selected -> data[i].i * 3] = (unitype) (self.positions -> data[self.selected -> data[i].i * 3].d - 360);
-                            i += 1;
-                        }
-                    }
-                } else {
-                    if (self.hlgcomp != 0) {
-                        self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d + 0.5 * self.rotateSpeed);
-                        if (self.positions -> data[self.hlgcomp * 3].d > 360)
-                            self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d - 360);
-                    }
-                }
-            }
-        }
-        if (turtleKeyPressed(GLFW_KEY_LEFT)) {
-            if (strcmp(self.holding, "a") != 0 && strcmp(self.holding, "b") != 0) {
-                self.holdingAng -= 0.5 * self.rotateSpeed;
-            } else {
-                if (self.selecting > 1) {
-                    // if space key pressed
-                    if (self.keys[1] == 1) {
-                        rotateSelected(&self, 0.5 * self.rotateSpeed);
-                    } else {
-                        int i = 1;
-                        for (int j = 0; j < self.selected -> length - 1; j++) {
-                            self.positions -> data[self.selected -> data[i].i * 3] = (unitype) (self.positions -> data[self.selected -> data[i].i * 3].d - 0.5 * self.rotateSpeed);
-                            if (self.positions -> data[self.selected -> data[i].i * 3].d < 0)
-                                self.positions -> data[self.selected -> data[i].i * 3] = (unitype) (self.positions -> data[self.selected -> data[i].i * 3].d + 360);
-                            i += 1;
-                        }
-                    }
-                } else {
-                    if (self.hlgcomp != 0) {
-                        self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d - 0.5 * self.rotateSpeed);
-                        if (self.positions -> data[self.hlgcomp * 3].d < 0)
-                            self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d + 360);
-                    }
-                }
-            }
-        }
         ribbonDraw(); // do ribbon before mouseTick
         parseRibbonOutput(&self);
         mouseTick(&self);
