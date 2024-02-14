@@ -1598,7 +1598,7 @@ void renderSidebar(logicgates *selfp, char side) { // this function draws the si
     turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
     *selfp = self;
 }
-void mouseTick(logicgates *selfp) { // all the functionality for the mouse is handled in this beast of a function, it's really messy and super hard to understand
+void mouseTick(logicgates *selfp) { // all the functionality for the mouse is handled in this beast of a function, it's an absolute mess
     logicgates self = *selfp;
     self.globalsize *= 0.75; // resizing
     if (turtleMouseDown()) {

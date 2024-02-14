@@ -35,11 +35,16 @@ shift + click - add component to selection\
 c - copy/paste selected\
 scroll wheel (or up and down arrows) - zoom\
 up and down arrows - zoom\
-space + scroll wheel - rotate component (coarse)\
+space/shift + scroll wheel - rotate component (coarse)\
 sideways arrows - rotate component (fine)\
 space + sideways arrows - rotate selected (fine)\
 k - export to file\
 h - toggle sidebar\
 w - toggle wireMode\
 t - toggle theme (dark/light)\
-z - snap to grid
+z - snap to grid\
+ctrl + c - copy\
+ctrl + x - cut\
+ctrl + v - paste\
+ctrl + z - undo\
+ctrl + y - redo
