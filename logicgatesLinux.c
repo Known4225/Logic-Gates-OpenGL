@@ -51,6 +51,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     double selectY;
     double selectY2;
     list_t *compSlots; // a lookup table for which components have two inputs vs one
+    char movingItems; // to keep track of movement of components so it can be detected and undone
     char wireHold; // whether you are toggled for wiring (hold space or click the wire symbol)
     int wiringStart; // the component ID of the start of a (under construction) wire
     int wiringEnd; // the component ID of the end of a wire at the moment it is constructed
@@ -143,6 +144,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.selectX2 = 0;
     self.selectY = 0;
     self.selectY2 = 0;
+    self.movingItems = 0;
     self.wireHold = 0;
     self.wiringStart = 0;
     self.wiringEnd = 0;
@@ -1598,7 +1600,7 @@ void renderSidebar(logicgates *selfp, char side) { // this function draws the si
     turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
     *selfp = self;
 }
-void mouseTick(logicgates *selfp) { // all the functionality for the mouse is handled in this beast of a function, it's really messy and super hard to understand
+void mouseTick(logicgates *selfp) { // all the functionality for the mouse is handled in this beast of a function, it's an absolute mess
     logicgates self = *selfp;
     self.globalsize *= 0.75; // resizing
     if (turtleMouseDown()) {
@@ -1843,10 +1845,16 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                         self.positions -> data[self.hglmove * 3 - 2] = (unitype) (self.mx / self.globalsize - self.screenX + self.offX);
                         self.positions -> data[self.hglmove * 3 - 1] = (unitype) (self.my / self.globalsize - self.screenY + self.offY);
                     }
+                    self.movingItems = 1;
                 }
             }
         }
     } else {
+        if (self.movingItems == 1) {
+            self.movingItems = 0;
+            // update undo
+            addUndo(&self);
+        }
         if (!(self.mx > self.boundXmin && self.mx < self.boundXmax && self.my > self.boundYmin && self.my < self.boundYmax) && self.hglmove > 0) {
             if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
                 int len = self.selected -> length - 1;
@@ -2210,8 +2218,11 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
                     copyToBuffer(&self, 0); // copy for later (ctrl+c)
                 }
             } else {
-                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0))
+                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
                     copySelected(&self); // copy directly
+                    // update undo
+                    addUndo(&self);
+                }
             }    
         }
         self.keys[17] = 1;
@@ -2449,31 +2460,39 @@ void parseRibbonOutput(logicgates *selfp) {
                     // printf("Loaded data from: %s\n", zenityFileDialog.filename);
                     clearAll(&self);
                     import(&self, zenityFileDialog.filename);
+                    // update undo
+                    addUndo(&self);
                 }
             }
         }
         if (ribbonRender.output[1] == 1) { // edit
             if (ribbonRender.output[2] == 1) { // undo
-                printf("undo\n");
                 undo(&self);
             }
             if (ribbonRender.output[2] == 2) { // redo
-                printf("redo\n");
                 redo(&self);
             }
             if (ribbonRender.output[2] == 3) { // cut
                 copyToBuffer(&self, 1);
+                // update undo
+                addUndo(&self);
             }
             if (ribbonRender.output[2] == 4) { // copy
                 copyToBuffer(&self, 0);
+                // update undo
+                addUndo(&self);
             }
             if (ribbonRender.output[2] == 5) { // paste
                 pasteFromBuffer(&self, 0);
+                // update undo
+                addUndo(&self);
             }
-            if (ribbonRender.output[2] == 6) { // add file
+            if (ribbonRender.output[2] == 6) { // add file (still somewhat broken)
                 if (zenityFileDialogPrompt(0, "") != -1) {
                     // printf("Loaded data from: %s\n", zenityFileDialog.filename);
                     import(&self, zenityFileDialog.filename);
+                    // update undo
+                    addUndo(&self);
                 }
             }
         }
@@ -2536,6 +2555,7 @@ int main(int argc, char *argv[]) {
         import(&self, argv[1]);
         strcpy(zenityFileDialog.filename, argv[1]);
     }
+    // update undo
     addUndo(&self);
     int frame = 0;
     while (turtle.close == 0) {
