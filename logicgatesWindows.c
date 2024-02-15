@@ -12,7 +12,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     char selecting; // i dont know
     char indicators; // idk
     char mouseType; // mouseType?
-    char wireMode; // there are two wireModes, 0 is classic, 1 is angular (new style)
+    char wireMode; // there are three wireModes, 0 is classic, 1 is angular (new style), and 2 is no wire render
     double scrollSpeed; // how fast the scroll zooms in, I think it's a 1.15x
     double rotateSpeed; // how fast the arrow keys rotate components
     int rotateCooldown; // what?
@@ -59,8 +59,8 @@ typedef struct { // all logicgates variables (shared state) are defined here
     /* these 5 lists make up the data of the circuit */
     list_t *components; // list of components (1 item for each component, a string with "POWER", "AND", etc), a component's "ID" or "Handle" is that component's index in this list
     list_t *positions; // list of component positions (3 items for each component, doubles specifying x, y, and angle)
-    list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible connections (either 1 or 2), connection 1 (ID, 0 if none), connection 2 (ID, 0 if none)
     list_t *io; // list of binary inputs and outputs of a component (3 items for each component, 2 inputs followed by the output of the component (either a 0 or 1))
+    list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible connections (either 1 or 2), connection 1 (ID, 0 if none), connection 2 (ID, 0 if none)
     list_t *wiring; // list of component connections (3 items per connection, it goes sender (ID), reciever (ID), powered (0 or 1))
     
     char keys[28];
@@ -122,7 +122,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.mouseType = 0;
     self.wxOffE = 0;
     self.wyOffE = 0;
-    self.wireMode = 0;
+    self.wireMode = 1;
     self.screenX = 0;
     self.screenY = 0;
     self.sxmax = 0;
@@ -248,24 +248,70 @@ void import(logicgates *selfp, const char *filename) { // imports a file
         rewind(file);
         for (int i = 0; i < num; i++) {
             end = fscanf(file, "%s", str1);
+            if (end == EOF) {
+                printf("file corrupted at word %d\n", i + 1);
+                return;
+            }   
             list_append(self.components, (unitype) str1, 's');
         }
         for (int i = 0; i < num * 3; i++) {
             end = fscanf(file, "%lf", &doub1);
+            if (end == EOF) {
+                printf("file corrupted at word %d\n", i + num + 1);
+                return;
+            }
             list_append(self.positions, (unitype) doub1, 'd');
         }
         for (int i = 0; i < num * 3; i++) {
             end = fscanf(file, "%d", &int1);
+            if (end == EOF) {
+                printf("file corrupted at word %d\n", i + num * 4 + 1);
+                return;
+            }
             list_append(self.io, (unitype) int1, 'i');
         }
-        for (int i = 0; i < num * 3; i++) {
+        for (int i = 0; i < num * 3; i += 3) {
             end = fscanf(file, "%d", &int1);
-            list_append(self.inpComp, (unitype) (int1 + oldCompLen), 'i');
+            if (end == EOF) {
+                printf("file corrupted at word %d\n", i + num * 7 + 1);
+                return;
+            }
+            list_append(self.inpComp, (unitype) int1, 'i');
+            for (int j = 0; j < 2; j++) {
+                end = fscanf(file, "%d", &int1);
+                if (end == EOF) {
+                    printf("file corrupted at word %d\n", i + j + num * 10 + 1);
+                    return;
+                }
+                if (int1 == 0) {
+                    // special case: 0 means no component attached
+                    list_append(self.inpComp, (unitype) 0, 'i');
+                } else {
+                    list_append(self.inpComp, (unitype) (int1 + oldCompLen), 'i');
+                }
+            }
         }
+        int i = 0;
         while (end != EOF) {
             end = fscanf(file, "%d", &int1);
-            if (end != EOF)
-                list_append(self.wiring, (unitype) (int1 + oldCompLen), 'i');
+            if (end == EOF) {
+                continue;
+                return;
+            }
+            list_append(self.wiring, (unitype) (int1 + oldCompLen), 'i');
+            end = fscanf(file, "%d", &int1);
+            if (end == EOF) {
+                printf("file corruptedd at word %d\n", i + 1 + num * 13 + 1);
+                return;
+            }
+            list_append(self.wiring, (unitype) (int1 + oldCompLen), 'i');
+            end = fscanf(file, "%d", &int1);
+            if (end == EOF) {
+                printf("file corrupteddd at word %d\n", i + 2 + num * 13 + 1);
+                return;
+            }
+            list_append(self.wiring, (unitype) int1, 'i');
+            i += 3;
         }
         self.screenX = -self.positions -> data[1].d;
         self.screenY = -self.positions -> data[2].d;
@@ -1478,38 +1524,40 @@ void renderWire(logicgates *selfp, double size) { // this function renders all t
     turtlePenSize(size * self.scaling);
     int len = self.wiring -> length - 1;
     for (int i = 1; i < len; i += 3) {
-        wireIO(&self, i, i + 1);
-        double wireTXS = (self.positions -> data[self.wiring -> data[i].i * 3 - 2].d + self.screenX) * self.globalsize;
-        double wireTYS = (self.positions -> data[self.wiring -> data[i].i * 3 - 1].d + self.screenY) * self.globalsize;
-        turtleGoto(wireTXS, wireTYS);
-        if (self.wiring -> data[i + 2].i == 1) {
-            if (list_count(self.selectOb, self.wiring -> data[i], 'i') > 0 || list_count(self.selectOb, self.wiring -> data[i + 1], 'i') > 0 || list_count(self.selected, self.wiring -> data[i], 'i') > 0 || list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0)
-                turtlePenColor(self.themeColors[10 + self.theme], self.themeColors[11 + self.theme], self.themeColors[12 + self.theme]);
-            else
-                turtlePenColor(self.themeColors[7 + self.theme], self.themeColors[8 + self.theme], self.themeColors[9 + self.theme]);
-        } else {
-            if (list_count(self.selectOb, self.wiring -> data[i], 'i') > 0 || list_count(self.selectOb, self.wiring -> data[i + 1], 'i') > 0 || list_count(self.selected, self.wiring -> data[i], 'i') > 0 || list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0)
-                turtlePenColor(self.themeColors[4 + self.theme], self.themeColors[5 + self.theme], self.themeColors[6 + self.theme]);
-            else
-                turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+        wireIO(&self, i, i + 1); // it was, in hindsight, a bad idea to do logic in the render function, but i guess it's fine
+        if (self.wireMode != 2) {
+            double wireTXS = (self.positions -> data[self.wiring -> data[i].i * 3 - 2].d + self.screenX) * self.globalsize;
+            double wireTYS = (self.positions -> data[self.wiring -> data[i].i * 3 - 1].d + self.screenY) * self.globalsize;
+            turtleGoto(wireTXS, wireTYS);
+            if (self.wiring -> data[i + 2].i == 1) {
+                if (list_count(self.selectOb, self.wiring -> data[i], 'i') > 0 || list_count(self.selectOb, self.wiring -> data[i + 1], 'i') > 0 || list_count(self.selected, self.wiring -> data[i], 'i') > 0 || list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0)
+                    turtlePenColor(self.themeColors[10 + self.theme], self.themeColors[11 + self.theme], self.themeColors[12 + self.theme]);
+                else
+                    turtlePenColor(self.themeColors[7 + self.theme], self.themeColors[8 + self.theme], self.themeColors[9 + self.theme]);
+            } else {
+                if (list_count(self.selectOb, self.wiring -> data[i], 'i') > 0 || list_count(self.selectOb, self.wiring -> data[i + 1], 'i') > 0 || list_count(self.selected, self.wiring -> data[i], 'i') > 0 || list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0)
+                    turtlePenColor(self.themeColors[4 + self.theme], self.themeColors[5 + self.theme], self.themeColors[6 + self.theme]);
+                else
+                    turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+            }
+            turtlePenDown();
+            wireTXS += sin((self.positions -> data[self.wiring -> data[i].i * 3].d) / 57.2958) * 22.5 * self.globalsize;
+            wireTYS += cos((self.positions -> data[self.wiring -> data[i].i * 3].d) / 57.2958) * 22.5 * self.globalsize;
+            turtleGoto(wireTXS, wireTYS);
+            double wireRot = (self.positions -> data[self.wiring -> data[i + 1].i * 3].d) / 57.2958; // direction of destination component (radians)
+            double wireTXE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 2].d + self.screenX) * self.globalsize - (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE); // x position of destination component
+            double wireTYE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 1].d + self.screenY) * self.globalsize - (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE); // y position of destination component
+            double distance = (wireTXE - wireTXS) * sin(wireRot) + (wireTYE - wireTYS) * cos(wireRot);
+            if (self.wireMode == 0)
+                turtleGoto(wireTXS + distance * sin(wireRot), wireTYS + distance * cos(wireRot));
+            turtleGoto(wireTXE, wireTYE);
+            distance = (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE) * sin(wireRot) + (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE) * cos(wireRot);
+            if (self.wireMode == 0)
+                turtleGoto(wireTXE + distance * sin(wireRot), wireTYE + distance * cos(wireRot));
+            turtleGoto(wireTXE + (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE), wireTYE + (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE));
+            turtlePenUp();
+            turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
         }
-        turtlePenDown();
-        wireTXS += sin((self.positions -> data[self.wiring -> data[i].i * 3].d) / 57.2958) * 22.5 * self.globalsize;
-        wireTYS += cos((self.positions -> data[self.wiring -> data[i].i * 3].d) / 57.2958) * 22.5 * self.globalsize;
-        turtleGoto(wireTXS, wireTYS);
-        double wireRot = (self.positions -> data[self.wiring -> data[i + 1].i * 3].d) / 57.2958; // direction of destination component (radians)
-        double wireTXE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 2].d + self.screenX) * self.globalsize - (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE); // x position of destination component
-        double wireTYE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 1].d + self.screenY) * self.globalsize - (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE); // y position of destination component
-        double distance = (wireTXE - wireTXS) * sin(wireRot) + (wireTYE - wireTYS) * cos(wireRot);
-        if (self.wireMode == 0)
-            turtleGoto(wireTXS + distance * sin(wireRot), wireTYS + distance * cos(wireRot));
-        turtleGoto(wireTXE, wireTYE);
-        distance = (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE) * sin(wireRot) + (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE) * cos(wireRot);
-        if (self.wireMode == 0)
-            turtleGoto(wireTXE + distance * sin(wireRot), wireTYE + distance * cos(wireRot));
-        turtleGoto(wireTXE + (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE), wireTYE + (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE));
-        turtlePenUp();
-        turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
     }
     self.globalsize /= 0.75;
     *selfp = self;
@@ -1600,7 +1648,7 @@ void renderSidebar(logicgates *selfp, char side) { // this function draws the si
     turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
     *selfp = self;
 }
-void mouseTick(logicgates *selfp) { // all the functionality for the mouse is handled in this beast of a function, it's really messy and super hard to understand
+void mouseTick(logicgates *selfp) { // all the functionality for the mouse is handled in this beast of a function, it's an absolute mess
     logicgates self = *selfp;
     self.globalsize *= 0.75; // resizing
     if (turtleMouseDown()) {
@@ -2218,8 +2266,11 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
                     copyToBuffer(&self, 0); // copy for later (ctrl+c)
                 }
             } else {
-                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0))
+                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
                     copySelected(&self); // copy directly
+                    // update undo
+                    addUndo(&self);
+                }
             }    
         }
         self.keys[17] = 1;
@@ -2255,9 +2306,13 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
     if (turtleKeyPressed(GLFW_KEY_W)) { // w key
         if (!self.keys[20]) {
             if (self.wireMode == 0) {
-                self.wireMode = 1;
+                self.wireMode = 2;
             } else {
-                self.wireMode = 0;
+                if (self.wireMode == 1) {
+                    self.wireMode = 0;
+                } else {
+                    self.wireMode = 1;
+                }
             }
         }
         self.keys[20] = 1;
@@ -2457,31 +2512,39 @@ void parseRibbonOutput(logicgates *selfp) {
                     // printf("Loaded data from: %s\n", win32FileDialog.filename);
                     clearAll(&self);
                     import(&self, win32FileDialog.filename);
+                    // update undo
+                    addUndo(&self);
                 }
             }
         }
         if (ribbonRender.output[1] == 1) { // edit
             if (ribbonRender.output[2] == 1) { // undo
-                printf("undo\n");
                 undo(&self);
             }
             if (ribbonRender.output[2] == 2) { // redo
-                printf("redo\n");
                 redo(&self);
             }
             if (ribbonRender.output[2] == 3) { // cut
                 copyToBuffer(&self, 1);
+                // update undo
+                addUndo(&self);
             }
             if (ribbonRender.output[2] == 4) { // copy
                 copyToBuffer(&self, 0);
+                // update undo
+                addUndo(&self);
             }
             if (ribbonRender.output[2] == 5) { // paste
                 pasteFromBuffer(&self, 0);
+                // update undo
+                addUndo(&self);
             }
             if (ribbonRender.output[2] == 6) { // add file
                 if (win32FileDialogPrompt(0, "") != -1) {
                     // printf("Loaded data from: %s\n", win32FileDialog.filename);
                     import(&self, win32FileDialog.filename);
+                    // update undo
+                    addUndo(&self);
                 }
             }
         }
@@ -2544,6 +2607,7 @@ int main(int argc, char *argv[]) {
         import(&self, argv[1]);
         strcpy(win32FileDialog.filename, argv[1]);
     }
+    // update undo
     addUndo(&self);
     int frame = 0;
     while (turtle.close == 0) {
