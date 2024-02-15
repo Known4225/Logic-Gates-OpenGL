@@ -51,6 +51,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     double selectY;
     double selectY2;
     list_t *compSlots; // a lookup table for which components have two inputs vs one
+    char movingItems; // to keep track of movement of components so it can be detected and undone
     char wireHold; // whether you are toggled for wiring (hold space or click the wire symbol)
     int wiringStart; // the component ID of the start of a (under construction) wire
     int wiringEnd; // the component ID of the end of a wire at the moment it is constructed
@@ -143,6 +144,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.selectX2 = 0;
     self.selectY = 0;
     self.selectY2 = 0;
+    self.movingItems = 0;
     self.wireHold = 0;
     self.wiringStart = 0;
     self.wiringEnd = 0;
@@ -1843,10 +1845,16 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                         self.positions -> data[self.hglmove * 3 - 2] = (unitype) (self.mx / self.globalsize - self.screenX + self.offX);
                         self.positions -> data[self.hglmove * 3 - 1] = (unitype) (self.my / self.globalsize - self.screenY + self.offY);
                     }
+                    self.movingItems = 1;
                 }
             }
         }
     } else {
+        if (self.movingItems == 1) {
+            self.movingItems = 0;
+            // update undo
+            addUndo(&self);
+        }
         if (!(self.mx > self.boundXmin && self.mx < self.boundXmax && self.my > self.boundYmin && self.my < self.boundYmax) && self.hglmove > 0) {
             if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
                 int len = self.selected -> length - 1;
@@ -2532,7 +2540,7 @@ int main(int argc, char *argv[]) {
     /* initialise ribbon */
     ribbonInit(window, "include/ribbonConfig.txt");
 
-    /* initialise win32Tools */
+    /* initialise win32FileDialog */
     win32ToolsInit();
     win32FileDialogAddExtension("txt"); // add txt to extension restrictions
     
