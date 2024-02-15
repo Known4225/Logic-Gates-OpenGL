@@ -12,7 +12,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     char selecting; // i dont know
     char indicators; // idk
     char mouseType; // mouseType?
-    char wireMode; // there are two wireModes, 0 is classic, 1 is angular (new style)
+    char wireMode; // there are three wireModes, 0 is classic, 1 is angular (new style), and 2 is no wire render
     double scrollSpeed; // how fast the scroll zooms in, I think it's a 1.15x
     double rotateSpeed; // how fast the arrow keys rotate components
     int rotateCooldown; // what?
@@ -122,7 +122,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.mouseType = 0;
     self.wxOffE = 0;
     self.wyOffE = 0;
-    self.wireMode = 0;
+    self.wireMode = 1;
     self.screenX = 0;
     self.screenY = 0;
     self.sxmax = 0;
@@ -1524,38 +1524,40 @@ void renderWire(logicgates *selfp, double size) { // this function renders all t
     turtlePenSize(size * self.scaling);
     int len = self.wiring -> length - 1;
     for (int i = 1; i < len; i += 3) {
-        wireIO(&self, i, i + 1);
-        double wireTXS = (self.positions -> data[self.wiring -> data[i].i * 3 - 2].d + self.screenX) * self.globalsize;
-        double wireTYS = (self.positions -> data[self.wiring -> data[i].i * 3 - 1].d + self.screenY) * self.globalsize;
-        turtleGoto(wireTXS, wireTYS);
-        if (self.wiring -> data[i + 2].i == 1) {
-            if (list_count(self.selectOb, self.wiring -> data[i], 'i') > 0 || list_count(self.selectOb, self.wiring -> data[i + 1], 'i') > 0 || list_count(self.selected, self.wiring -> data[i], 'i') > 0 || list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0)
-                turtlePenColor(self.themeColors[10 + self.theme], self.themeColors[11 + self.theme], self.themeColors[12 + self.theme]);
-            else
-                turtlePenColor(self.themeColors[7 + self.theme], self.themeColors[8 + self.theme], self.themeColors[9 + self.theme]);
-        } else {
-            if (list_count(self.selectOb, self.wiring -> data[i], 'i') > 0 || list_count(self.selectOb, self.wiring -> data[i + 1], 'i') > 0 || list_count(self.selected, self.wiring -> data[i], 'i') > 0 || list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0)
-                turtlePenColor(self.themeColors[4 + self.theme], self.themeColors[5 + self.theme], self.themeColors[6 + self.theme]);
-            else
-                turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+        wireIO(&self, i, i + 1); // it was, in hindsight, a bad idea to do logic in the render function, but i guess it's fine
+        if (self.wireMode != 2) {
+            double wireTXS = (self.positions -> data[self.wiring -> data[i].i * 3 - 2].d + self.screenX) * self.globalsize;
+            double wireTYS = (self.positions -> data[self.wiring -> data[i].i * 3 - 1].d + self.screenY) * self.globalsize;
+            turtleGoto(wireTXS, wireTYS);
+            if (self.wiring -> data[i + 2].i == 1) {
+                if (list_count(self.selectOb, self.wiring -> data[i], 'i') > 0 || list_count(self.selectOb, self.wiring -> data[i + 1], 'i') > 0 || list_count(self.selected, self.wiring -> data[i], 'i') > 0 || list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0)
+                    turtlePenColor(self.themeColors[10 + self.theme], self.themeColors[11 + self.theme], self.themeColors[12 + self.theme]);
+                else
+                    turtlePenColor(self.themeColors[7 + self.theme], self.themeColors[8 + self.theme], self.themeColors[9 + self.theme]);
+            } else {
+                if (list_count(self.selectOb, self.wiring -> data[i], 'i') > 0 || list_count(self.selectOb, self.wiring -> data[i + 1], 'i') > 0 || list_count(self.selected, self.wiring -> data[i], 'i') > 0 || list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0)
+                    turtlePenColor(self.themeColors[4 + self.theme], self.themeColors[5 + self.theme], self.themeColors[6 + self.theme]);
+                else
+                    turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+            }
+            turtlePenDown();
+            wireTXS += sin((self.positions -> data[self.wiring -> data[i].i * 3].d) / 57.2958) * 22.5 * self.globalsize;
+            wireTYS += cos((self.positions -> data[self.wiring -> data[i].i * 3].d) / 57.2958) * 22.5 * self.globalsize;
+            turtleGoto(wireTXS, wireTYS);
+            double wireRot = (self.positions -> data[self.wiring -> data[i + 1].i * 3].d) / 57.2958; // direction of destination component (radians)
+            double wireTXE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 2].d + self.screenX) * self.globalsize - (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE); // x position of destination component
+            double wireTYE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 1].d + self.screenY) * self.globalsize - (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE); // y position of destination component
+            double distance = (wireTXE - wireTXS) * sin(wireRot) + (wireTYE - wireTYS) * cos(wireRot);
+            if (self.wireMode == 0)
+                turtleGoto(wireTXS + distance * sin(wireRot), wireTYS + distance * cos(wireRot));
+            turtleGoto(wireTXE, wireTYE);
+            distance = (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE) * sin(wireRot) + (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE) * cos(wireRot);
+            if (self.wireMode == 0)
+                turtleGoto(wireTXE + distance * sin(wireRot), wireTYE + distance * cos(wireRot));
+            turtleGoto(wireTXE + (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE), wireTYE + (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE));
+            turtlePenUp();
+            turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
         }
-        turtlePenDown();
-        wireTXS += sin((self.positions -> data[self.wiring -> data[i].i * 3].d) / 57.2958) * 22.5 * self.globalsize;
-        wireTYS += cos((self.positions -> data[self.wiring -> data[i].i * 3].d) / 57.2958) * 22.5 * self.globalsize;
-        turtleGoto(wireTXS, wireTYS);
-        double wireRot = (self.positions -> data[self.wiring -> data[i + 1].i * 3].d) / 57.2958; // direction of destination component (radians)
-        double wireTXE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 2].d + self.screenX) * self.globalsize - (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE); // x position of destination component
-        double wireTYE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 1].d + self.screenY) * self.globalsize - (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE); // y position of destination component
-        double distance = (wireTXE - wireTXS) * sin(wireRot) + (wireTYE - wireTYS) * cos(wireRot);
-        if (self.wireMode == 0)
-            turtleGoto(wireTXS + distance * sin(wireRot), wireTYS + distance * cos(wireRot));
-        turtleGoto(wireTXE, wireTYE);
-        distance = (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE) * sin(wireRot) + (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE) * cos(wireRot);
-        if (self.wireMode == 0)
-            turtleGoto(wireTXE + distance * sin(wireRot), wireTYE + distance * cos(wireRot));
-        turtleGoto(wireTXE + (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE), wireTYE + (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE));
-        turtlePenUp();
-        turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
     }
     self.globalsize /= 0.75;
     *selfp = self;
@@ -2304,9 +2306,13 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
     if (turtleKeyPressed(GLFW_KEY_W)) { // w key
         if (!self.keys[20]) {
             if (self.wireMode == 0) {
-                self.wireMode = 1;
+                self.wireMode = 2;
             } else {
-                self.wireMode = 0;
+                if (self.wireMode == 1) {
+                    self.wireMode = 0;
+                } else {
+                    self.wireMode = 1;
+                }
             }
         }
         self.keys[20] = 1;
