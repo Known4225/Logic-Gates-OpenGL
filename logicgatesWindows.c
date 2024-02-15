@@ -1598,7 +1598,7 @@ void renderSidebar(logicgates *selfp, char side) { // this function draws the si
     turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
     *selfp = self;
 }
-void mouseTick(logicgates *selfp) { // all the functionality for the mouse is handled in this beast of a function, it's an absolute mess
+void mouseTick(logicgates *selfp) { // all the functionality for the mouse is handled in this beast of a function, it's really messy and super hard to understand
     logicgates self = *selfp;
     self.globalsize *= 0.75; // resizing
     if (turtleMouseDown()) {
@@ -2210,11 +2210,8 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
                     copyToBuffer(&self, 0); // copy for later (ctrl+c)
                 }
             } else {
-                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
+                if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0))
                     copySelected(&self); // copy directly
-                    // update undo
-                    addUndo(&self);
-                }
             }    
         }
         self.keys[17] = 1;
@@ -2452,39 +2449,31 @@ void parseRibbonOutput(logicgates *selfp) {
                     // printf("Loaded data from: %s\n", win32FileDialog.filename);
                     clearAll(&self);
                     import(&self, win32FileDialog.filename);
-                    // update undo
-                    addUndo(&self);
                 }
             }
         }
         if (ribbonRender.output[1] == 1) { // edit
             if (ribbonRender.output[2] == 1) { // undo
+                printf("undo\n");
                 undo(&self);
             }
             if (ribbonRender.output[2] == 2) { // redo
+                printf("redo\n");
                 redo(&self);
             }
             if (ribbonRender.output[2] == 3) { // cut
                 copyToBuffer(&self, 1);
-                // update undo
-                addUndo(&self);
             }
             if (ribbonRender.output[2] == 4) { // copy
                 copyToBuffer(&self, 0);
-                // update undo
-                addUndo(&self);
             }
             if (ribbonRender.output[2] == 5) { // paste
                 pasteFromBuffer(&self, 0);
-                // update undo
-                addUndo(&self);
             }
-            if (ribbonRender.output[2] == 6) { // add file (still somewhat broken)
+            if (ribbonRender.output[2] == 6) { // add file
                 if (win32FileDialogPrompt(0, "") != -1) {
                     // printf("Loaded data from: %s\n", win32FileDialog.filename);
                     import(&self, win32FileDialog.filename);
-                    // update undo
-                    addUndo(&self);
                 }
             }
         }
@@ -2532,7 +2521,7 @@ int main(int argc, char *argv[]) {
     /* initialise ribbon */
     ribbonInit(window, "include/ribbonConfig.txt");
 
-    /* initialise win32Tools */
+    /* initialise win32FileDialog */
     win32ToolsInit();
     win32FileDialogAddExtension("txt"); // add txt to extension restrictions
     
@@ -2547,7 +2536,6 @@ int main(int argc, char *argv[]) {
         import(&self, argv[1]);
         strcpy(win32FileDialog.filename, argv[1]);
     }
-    // update undo
     addUndo(&self);
     int frame = 0;
     while (turtle.close == 0) {
