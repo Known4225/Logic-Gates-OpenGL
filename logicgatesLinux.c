@@ -59,8 +59,8 @@ typedef struct { // all logicgates variables (shared state) are defined here
     /* these 5 lists make up the data of the circuit */
     list_t *components; // list of components (1 item for each component, a string with "POWER", "AND", etc), a component's "ID" or "Handle" is that component's index in this list
     list_t *positions; // list of component positions (3 items for each component, doubles specifying x, y, and angle)
-    list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible connections (either 1 or 2), connection 1 (ID, 0 if none), connection 2 (ID, 0 if none)
     list_t *io; // list of binary inputs and outputs of a component (3 items for each component, 2 inputs followed by the output of the component (either a 0 or 1))
+    list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible connections (either 1 or 2), connection 1 (ID, 0 if none), connection 2 (ID, 0 if none)
     list_t *wiring; // list of component connections (3 items per connection, it goes sender (ID), reciever (ID), powered (0 or 1))
     
     char keys[28];
@@ -248,24 +248,70 @@ void import(logicgates *selfp, const char *filename) { // imports a file
         rewind(file);
         for (int i = 0; i < num; i++) {
             end = fscanf(file, "%s", str1);
+            if (end == EOF) {
+                printf("file corrupted at word %d\n", i + 1);
+                return;
+            }   
             list_append(self.components, (unitype) str1, 's');
         }
         for (int i = 0; i < num * 3; i++) {
             end = fscanf(file, "%lf", &doub1);
+            if (end == EOF) {
+                printf("file corrupted at word %d\n", i + num + 1);
+                return;
+            }
             list_append(self.positions, (unitype) doub1, 'd');
         }
         for (int i = 0; i < num * 3; i++) {
             end = fscanf(file, "%d", &int1);
+            if (end == EOF) {
+                printf("file corrupted at word %d\n", i + num * 4 + 1);
+                return;
+            }
             list_append(self.io, (unitype) int1, 'i');
         }
-        for (int i = 0; i < num * 3; i++) {
+        for (int i = 0; i < num * 3; i += 3) {
             end = fscanf(file, "%d", &int1);
-            list_append(self.inpComp, (unitype) (int1 + oldCompLen), 'i');
+            if (end == EOF) {
+                printf("file corrupted at word %d\n", i + num * 7 + 1);
+                return;
+            }
+            list_append(self.inpComp, (unitype) int1, 'i');
+            for (int j = 0; j < 2; j++) {
+                end = fscanf(file, "%d", &int1);
+                if (end == EOF) {
+                    printf("file corrupted at word %d\n", i + j + num * 10 + 1);
+                    return;
+                }
+                if (int1 == 0) {
+                    // special case: 0 means no component attached
+                    list_append(self.inpComp, (unitype) 0, 'i');
+                } else {
+                    list_append(self.inpComp, (unitype) (int1 + oldCompLen), 'i');
+                }
+            }
         }
+        int i = 0;
         while (end != EOF) {
             end = fscanf(file, "%d", &int1);
-            if (end != EOF)
-                list_append(self.wiring, (unitype) (int1 + oldCompLen), 'i');
+            if (end == EOF) {
+                continue;
+                return;
+            }
+            list_append(self.wiring, (unitype) (int1 + oldCompLen), 'i');
+            end = fscanf(file, "%d", &int1);
+            if (end == EOF) {
+                printf("file corruptedd at word %d\n", i + 1 + num * 13 + 1);
+                return;
+            }
+            list_append(self.wiring, (unitype) (int1 + oldCompLen), 'i');
+            end = fscanf(file, "%d", &int1);
+            if (end == EOF) {
+                printf("file corrupteddd at word %d\n", i + 2 + num * 13 + 1);
+                return;
+            }
+            list_append(self.wiring, (unitype) int1, 'i');
+            i += 3;
         }
         self.screenX = -self.positions -> data[1].d;
         self.screenY = -self.positions -> data[2].d;
@@ -2487,7 +2533,7 @@ void parseRibbonOutput(logicgates *selfp) {
                 // update undo
                 addUndo(&self);
             }
-            if (ribbonRender.output[2] == 6) { // add file (still somewhat broken)
+            if (ribbonRender.output[2] == 6) { // add file
                 if (zenityFileDialogPrompt(0, "") != -1) {
                     // printf("Loaded data from: %s\n", zenityFileDialog.filename);
                     import(&self, zenityFileDialog.filename);
