@@ -2,7 +2,9 @@
 
 ### Compile (windows 64 bit):
 gcc logicgatesWindows.c -L./Windows -lglfw3 -lopengl32 -lgdi32 -lglad -lole32 -luuid -O3 -o logicgatesWindows.exe\
-Then run logicgatesWindows.exe
+Then run logicgatesWindows.exe\
+I've also included the 64-bit binary (logicgatesWindows.exe) for convenience,\
+so you can just run that without compilation if you're on windows (and a 64 bit machine)
 
 ### Compile (linux):
 gcc logicgatesLinux.c -L./Linux -lglfw3 -ldl -lm -lX11 -lglad -lGL -lGLU -lpthread -O3 -o logicgatesLinux.o\
@@ -55,4 +57,5 @@ ctrl + y - redo
  - Grouping (select + group as unit)
  - Grouped units "summonable" (without having to save and add file)
  - Multiple tabs
+ - Multiple colours? (customisable?)
  

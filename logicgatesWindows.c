@@ -71,12 +71,13 @@ typedef struct { // all logicgates variables (shared state) are defined here
     list_t *io; // list of binary inputs and outputs of a component (3 items for each component, 2 inputs followed by the output of the component (either a 0 or 1))
     list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible connections (either 1 or 2), connection 1 (ID, 0 if none), connection 2 (ID, 0 if none)
     list_t *wiring; // list of component connections (3 items per connection, it goes sender (ID), reciever (ID), powered (0 or 1))
+    list_t *groups; // list of group data (1 element per component, integer represents group ID, -1 is no group. IDs start at 1. 0 is not used)
     
-    char keys[28];
+    char keys[32];
+    list_t *groupSelect; // list of component IDs in the hovered/selected group
     list_t *deleteQueue; // when many components are deleted, they are queued here
     list_t *selected; // list of selected component IDs
-    list_t *selectOb; // list of selected component IDs (but different?)
-    list_t *wireTemp; // i dont even know what this is for
+    list_t *selectOb; // list of selected component IDs (but transferred to selected a tick later?)
     list_t *copyBuffer; // for ctrl+c and ctrl+v
     list_t *undoBuffer; // list of lists containing the state of the program after every undoable action
     int undoIndex; // what position in the undoBuffer are we at
@@ -157,8 +158,6 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.wireHold = 0;
     self.wiringStart = 0;
     self.wiringEnd = 0;
-    self.components = list_init();
-    list_append(self.components, (unitype) "null", 's'); // they start with an 'n' char or "null" string so they are 1-indexed not 0-indexed because I'm a bad coder
     self.compSlots = list_init();
     list_append(self.compSlots, (unitype) "null", 's');
     list_append(self.compSlots, (unitype) "POWER", 's');
@@ -177,24 +176,33 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     list_append(self.compSlots, (unitype) 2, 'i');
     list_append(self.compSlots, (unitype) "BUFFER", 's');
     list_append(self.compSlots, (unitype) 1, 'i');
-    self.deleteQueue = list_init();
-    list_append(self.deleteQueue, (unitype) 'n', 'c');
+    
+    self.components = list_init();
+    list_append(self.components, (unitype) "null", 's'); // they start with an 'n' char or "null" string so they are 1-indexed not 0-indexed because I'm a bad coder
     self.inpComp = list_init();
     list_append(self.inpComp, (unitype) 'n', 'c');
     self.io = list_init();
     list_append(self.io, (unitype) 'n', 'c');
-    for (int i = 0; i < 20; i++)
-        self.keys[i] = 0;
     self.positions = list_init();
     list_append(self.positions, (unitype) 'n', 'c');
+    self.wiring = list_init();
+    list_append(self.wiring, (unitype) 'n', 'c');
+    self.wiring = list_init();
+    list_append(self.wiring, (unitype) 'n', 'c');
+    self.groups = list_init();
+    list_append(self.groups, (unitype) 'n', 'c');
+
+    for (int i = 0; i < 32; i++) {
+        self.keys[i] = 0;
+    }
+    self.groupSelect = list_init();
+    list_append(self.groupSelect, (unitype) 'n', 'c');
+    self.deleteQueue = list_init();
+    list_append(self.deleteQueue, (unitype) 'n', 'c');
     self.selected = list_init();
     list_append(self.selected, (unitype) "null", 's');
     self.selectOb = list_init();
     list_append(self.selectOb, (unitype) "null", 's');
-    self.wiring = list_init();
-    list_append(self.wiring, (unitype) 'n', 'c');
-    self.wireTemp = list_init();
-    list_append(self.wireTemp, (unitype) 'n', 'c');
     self.copyBuffer = list_init();
     list_append(self.copyBuffer, (unitype) 'n', 'c');
     for (int i = 1; i < 6; i++) {
@@ -215,10 +223,12 @@ void clearAll(logicgates *selfp) { // clears the stage
     logicgates self = *selfp;
     list_clear(self.components);
     list_append(self.components, (unitype) "null", 's');
-    list_clear(self.inpComp);
-    list_append(self.inpComp, (unitype) 'n', 'c');
+    list_clear(self.groups);
+    list_append(self.groups, (unitype) 'n', 'c');
     list_clear(self.positions);
     list_append(self.positions, (unitype) 'n', 'c');
+    list_clear(self.inpComp);
+    list_append(self.inpComp, (unitype) 'n', 'c');
     list_clear(self.io);
     list_append(self.io, (unitype) 'n', 'c');
     list_clear(self.wiring);
@@ -229,7 +239,7 @@ void import(logicgates *selfp, const char *filename) { // imports a file
     logicgates self = *selfp;
     printf("Attempting to load %s\n", filename);
     FILE *file = fopen(filename, "r");
-    char str1[10] = "null";
+    char str1[20] = "null";
     double doub1;
     int int1;
     int end = 0;
@@ -261,7 +271,23 @@ void import(logicgates *selfp, const char *filename) { // imports a file
                 printf("file corrupted at word %d\n", i + 1);
                 return;
             }   
+            // parse string (component from group)
+            int j = 0;
+            char str2[12] = "null";
+            while (str1[j] != '\0') {
+                if (str1[j] > 47 && str1[j] < 58) {
+                    strcpy(str2, &str1[j]);
+                    str1[j] = '\0';
+                    break;
+                }
+                j++;
+            }
             list_append(self.components, (unitype) str1, 's');
+            if (strcmp(str2, "null") == 0) {
+                list_append(self.groups, (unitype) -1, 'i');
+            } else {
+                list_append(self.groups, (unitype) atoi(str2), 'i');
+            }
         }
         for (int i = 0; i < num * 3; i++) {
             end = fscanf(file, "%lf", &doub1);
@@ -332,16 +358,26 @@ void import(logicgates *selfp, const char *filename) { // imports a file
 void export(logicgates *selfp, const char *filename) { // exports a file
     logicgates self = *selfp;
     FILE *file = fopen(filename, "w+");
-    for (int i = 1; i < self.components -> length; i++)
-        fprintf(file, "%s ", self.components -> data[i].s);
-    for (int i = 1; i < self.positions -> length; i++)
+    for (int i = 1; i < self.components -> length; i++) {
+        fprintf(file, "%s", self.components -> data[i].s);
+        if (self.groups -> data[i].i == -1) {
+            fprintf(file, " ");
+        } else {
+            fprintf(file, "%d ", self.groups -> data[i].i);
+        }
+    }
+    for (int i = 1; i < self.positions -> length; i++) {
         fprintf(file, "%.0lf ", self.positions -> data[i].d);
-    for (int i = 1; i < self.io -> length; i++)
+    }
+    for (int i = 1; i < self.io -> length; i++) {
         fprintf(file, "%d ", self.io -> data[i].i);
-    for (int i = 1; i < self.inpComp -> length; i++)
+    }
+    for (int i = 1; i < self.inpComp -> length; i++) {
         fprintf(file, "%d ", self.inpComp -> data[i].i);
-    for (int i = 1; i < self.wiring -> length; i++)
+    }
+    for (int i = 1; i < self.wiring -> length; i++) {
         fprintf(file, "%d ", self.wiring -> data[i].i);
+    }
     printf("Successfully saved to %s\n", filename);
     fclose(file);
     *selfp = self;
@@ -688,6 +724,7 @@ void deleteComp(logicgates *selfp, int index) { // deletes a component
         i += 3;
     }
     list_delete(self.components, index);
+    list_delete(self.groups, index);
     list_delete(self.positions, index * 3 - 2);
     list_delete(self.positions, index * 3 - 2);
     list_delete(self.positions, index * 3 - 2);
@@ -697,6 +734,83 @@ void deleteComp(logicgates *selfp, int index) { // deletes a component
     list_delete(self.inpComp, index * 3 - 2);
     list_delete(self.inpComp, index * 3 - 2);
     list_delete(self.inpComp, index * 3 - 2);
+    *selfp = self;
+}
+void groupSelected(logicgates *selfp, int ungroup) { // creates a group for selected components
+    /* principle of groups:
+    in file: append groupID to the end of a component name
+    POWER1 POWER1 AND1 OR2 POWER2 POWER2
+
+    in code: have a "groups" list
+    we need
+    - fast access to tell what group a given component is in
+    - fast access to get all the components in a given group (potentially compromisable)
+
+    on the screen: 
+    - moving one element of a group should move all the elements
+    - selecting one element of a group should select all the elements
+    - each component can only be in one group
+    - selecting components and hitting 'G' will put those components in a new group. Any components already in a group will lose their relation to that group
+      - if all components are in the same group it will ungroup them
+    - selecting components and hitting "shift + G" will put those components in no group
+    - bonus: groups will have a square around them when hovered over (like a selection square but more minimal)
+    - copying components that are exclusively in a group will create a new group for the copied components
+
+    Technical invariant:
+    You cannot select a subset of components from a group (for now)
+     - Do not make this assumption in the code though, because I'm not sure if there will be a way later
+    */
+
+    logicgates self = *selfp;
+    self.sxmax = 0;
+    self.sxmin = 0;
+    self.symax = 0;
+    self.symin = 0;
+    self.selecting = 3;
+    if (self.hlgcomp > 0 && self.selected -> length == 1) {
+        // case: pressing g on a single component
+        // this puts that component in no group
+        self.groups -> data[self.hlgcomp].i = -1;
+    } else {
+        if (ungroup) {
+            // case: shift + G (ungroup)
+            for (int i = 1; i < self.selected -> length; i++) {
+                self.groups -> data[self.selected -> data[i].i].i = -1;
+            }
+        } else {
+            int groupCheck = self.groups -> data[self.selected -> data[1].i].i;
+            if (groupCheck > 0) {
+                for (int i = 2; i < self.selected -> length; i++) {
+                    if (self.groups -> data[self.selected -> data[i].i].i != groupCheck) {
+                        groupCheck = 0;
+                        break;
+                    }
+                }
+            }
+            if (groupCheck > 0) {
+                // case: all selected items are part of the same (non -1) group
+                // ungroup items
+                for (int i = 1; i < self.selected -> length; i++) {
+                    self.groups -> data[self.selected -> data[i].i].i = -1;
+                }
+            } else {
+                // case: group items
+                // find next available group ID
+                int groupID = 1;
+                for (int i = 1; i < self.groups -> length; i++) {
+                    if (self.groups -> data[i].i >= groupID) {
+                        groupID = self.groups -> data[i].i + 1;
+                    }
+                }
+                // put all selected items in that group
+                for (int i = 1; i < self.selected -> length; i++) {
+                    self.groups -> data[self.selected -> data[i].i].i = groupID;
+                }
+            }
+        }
+    }
+    list_clear(self.selected);
+    list_append(self.selected, (unitype) "null", 's');
     *selfp = self;
 }
 void copySelected(logicgates *selfp) { // copies and pastes selected components
@@ -718,6 +832,7 @@ void copySelected(logicgates *selfp) { // copies and pastes selected components
     k /= m1 - 1;
     for (int i = 1; i < m1; i++) {
         list_append(self.components, self.components -> data[self.selected -> data[i].i], 's');
+        list_append(self.groups, (unitype) -1, 'i');
         list_append(self.positions, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 2].d + self.mx / (self.globalsize * 0.75) - self.screenX - j), 'd');
         list_append(self.positions, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d + self.my / (self.globalsize * 0.75) - self.screenY - k), 'd');
         list_append(self.positions, self.positions -> data[self.selected -> data[i].i * 3], 'd');
@@ -754,12 +869,25 @@ void copySelected(logicgates *selfp) { // copies and pastes selected components
             list_append(self.wiring, (unitype) 0, 'i');
         }
     }
+    list_free(wireTemp);
+    int groupCheck = self.groups -> data[self.selected -> data[1].i].i;
+    if (groupCheck > 0) {
+        for (int i = 2; i < self.selected -> length; i++) {
+            if (self.groups -> data[self.selected -> data[i].i].i != groupCheck) {
+                groupCheck = 0;
+                break;
+            }
+        }
+    }
     int i = self.components -> length - self.selected -> length + 1;
     list_clear(self.selected);
     list_append(self.selected, (unitype) "null", 's');
     for (int o = 1; o < m1; o++) {
         list_append(self.selected, (unitype) i, 'i');
         i += 1;
+    }
+    if (groupCheck > 0) {
+        groupSelected(&self, 0);
     }
     *selfp = self;
 }
@@ -831,6 +959,7 @@ void copyToBuffer(logicgates *selfp, char cut) {
             list_append(self.copyBuffer -> data[5].r, (unitype) 0, 'i');
         }
     }
+    list_free(wireTemp);
     if (cut) {
         len = self.selected -> length - 1;
         for (int i = 0; i < len; i++) {
@@ -857,6 +986,8 @@ void pasteFromBuffer(logicgates *selfp, char toMouse) {
     for (int i = 1; i < m1; i++) {
         // component straight copied from copyBuffer
         list_append(self.components, self.copyBuffer -> data[1].r -> data[i], 's');
+        // groups are not saved in copyBuffer, since group data is not copied (for now)
+        list_append(self.groups, (unitype) -1, 'i');
         // positions must be translated by mouse and screen position to reflect their new location of pastement, center of mass has been precalculated
         if (toMouse) {
             list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 2].d + self.mx / (self.globalsize * 0.75) - self.screenX), 'd');
@@ -913,6 +1044,9 @@ void addUndo(logicgates *selfp) { // adds current state of program to undo list
     for (int i = 1; i < self.components -> length; i++) {
         list_append(self.undoBuffer -> data[self.undoIndex].r, self.components -> data[i], 's');
     }
+    for (int i = 1; i < self.groups -> length; i++) {
+        list_append(self.undoBuffer -> data[self.undoIndex].r, self.groups -> data[i], 'i');
+    }
     for (int i = 1; i < self.positions -> length; i++) {
         list_append(self.undoBuffer -> data[self.undoIndex].r, self.positions -> data[i], 'd');
     }
@@ -944,6 +1078,13 @@ void transferUndoBuffer(logicgates *selfp) { // transfers undoBuffer data to the
     list_append(self.components, (unitype) "null", 's');
     for (int i = 1; i < numComp; i++) {
         list_append(self.components, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex], 's');
+        globIndex++;
+    }
+    // groups
+    list_clear(self.groups);
+    list_append(self.groups, (unitype) 'n', 'c');
+    for (int i = 1; i < numComp; i++) {
+        list_append(self.groups, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex], 'i');
         globIndex++;
     }
     // positions
@@ -1104,6 +1245,46 @@ void selectionBox(logicgates *selfp, double x1, double y1, double x2, double y2)
     }
     *selfp = self;
 }
+void groupBox(logicgates *selfp, int groupID) {
+    logicgates self = *selfp;
+    // gather dimensions of box
+    double minX = 100000000;
+    double maxX = -100000000;
+    double minY = 100000000;
+    double maxY = -100000000;
+    for (int i = 1; i < self.components -> length; i++) {
+        if (self.groups -> data[i].i == groupID) {
+            if (self.positions -> data[i * 3 - 2].d > maxX) {
+                maxX = self.positions -> data[i * 3 - 2].d;
+            }
+            if (self.positions -> data[i * 3 - 2].d < minX) {
+                minX = self.positions -> data[i * 3 - 2].d;
+            }
+            if (self.positions -> data[i * 3 - 1].d > maxY) {
+                maxY = self.positions -> data[i * 3 - 1].d;
+            }
+            if (self.positions -> data[i * 3 - 1].d < minY) {
+                minY = self.positions -> data[i * 3 - 1].d;
+            }
+            list_append(self.groupSelect, (unitype) i, 'i');
+        }
+    }
+    double compWidthFactor = 16;
+    minX = (minX + self.screenX - compWidthFactor) * self.globalsize;
+    maxX = (maxX + self.screenX + compWidthFactor) * self.globalsize;
+    minY = (minY + self.screenY - compWidthFactor) * self.globalsize;
+    maxY = (maxY + self.screenY + compWidthFactor) * self.globalsize;
+    turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+    turtlePenSize(self.globalsize * self.scaling * 0.25);
+    turtleGoto(minX, minY);
+    turtlePenDown();
+    turtleGoto(minX, maxY);
+    turtleGoto(maxX, maxY);
+    turtleGoto(maxX, minY);
+    turtleGoto(minX, minY);
+    turtlePenUp();
+    *selfp = self;
+}
 void hlgcompset(logicgates *selfp) { // sets hlgcomp to whatever component the mouse is hovering over
     logicgates self = *selfp;
     self.globalsize *= 0.75; // resizing
@@ -1112,6 +1293,17 @@ void hlgcompset(logicgates *selfp) { // sets hlgcomp to whatever component the m
     for (int i = 1; i < len; i++) {
         if ((self.mx / self.globalsize - self.screenX + 18) > self.positions -> data[i * 3 - 2].d && (self.mx / self.globalsize - self.screenX - 18) < self.positions -> data[i * 3 - 2].d && (self.my / self.globalsize - self.screenY + 18) > self.positions -> data[i * 3 - 1].d && (self.my / self.globalsize - self.screenY - 18) < self.positions -> data[i * 3 - 1].d) {
             self.hlgcomp = i;
+        }
+    }
+    list_clear(self.groupSelect);
+    list_append(self.groupSelect, (unitype) 'n', 'c');
+    if (self.hglmove == 0) {
+        if (self.hlgcomp > 0 && self.groups -> data[self.hlgcomp].i > 0) {
+            groupBox(&self, self.groups -> data[self.hlgcomp].i);
+        }
+    } else {
+        if (self.groups -> data[self.hglmove].i > 0) {
+            groupBox(&self, self.groups -> data[self.hglmove].i);
         }
     }
     self.globalsize /= 0.75;
@@ -1478,53 +1670,70 @@ void renderComp(logicgates *selfp) { // this function renders all the components
     logicgates self = *selfp;
     list_clear(self.selectOb);
     list_append(self.selectOb, (unitype) "null", 's');
+    list_t *memo = list_init();
+    list_t *selectedGroups = list_init();
     int len = self.components -> length;
     for (int i = 1; i < len; i++) {
         double renderX = (self.positions -> data[i * 3 - 2].d + self.screenX) * self.globalsize * 0.75;
         double renderY = (self.positions -> data[i * 3 - 1].d + self.screenY) * self.globalsize * 0.75;
-        if (renderX + 15 * self.globalsize > -240 && renderX + -15 * self.globalsize < 240 && renderY + 15 * self.globalsize > -180 && renderY + -15 * self.globalsize < 180) {
-            if (list_count(self.selected, (unitype) i, 'i') > 0 || (renderX + 12 * self.globalsize > self.sxmin && renderX + -12 * self.globalsize < self.sxmax && renderY + 12 * self.globalsize > self.symin && renderY + -12 * self.globalsize < self.symax && self.selecting == 1)) {
-                    list_append(self.selectOb, (unitype) i, 'i');
-                    turtlePenColor(self.themeColors[4 + self.theme], self.themeColors[5 + self.theme], self.themeColors[6 + self.theme]);
-                } else {
-                    turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
-                }
-                if (strcmp(self.components -> data[i].s, "POWER") == 0) {
-                    if (self.io -> data[i * 3 - 1].i == 1) {
-                        if (list_count(self.selectOb, (unitype) i, 'i') > 0)
-                            POWER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d, 1, 1);
-                        else
-                            POWER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d, 1, 0);
-                    } else {
-                        if (self.io -> data[i * 3 - 2].i == 1) {
-                            if (list_count(self.selectOb, (unitype) i, 'i') > 0)
-                                POWER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d, 2, 1);
-                            else
-                                POWER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d, 2, 0);
-                        } else {
-                            if (list_count(self.selectOb, (unitype) i, 'i') > 0)
-                                POWER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d, 0, 1);
-                            else
-                                POWER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d, 0, 0);
-                        }
-                    }
-                }
-                if (strcmp(self.components -> data[i].s, "AND") == 0)
-                    AND(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
-                if (strcmp(self.components -> data[i].s, "OR") == 0)
-                    OR(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
-                if (strcmp(self.components -> data[i].s, "NOT") == 0)
-                    NOT(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
-                if (strcmp(self.components -> data[i].s, "XOR") == 0)
-                    XOR(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
-                if (strcmp(self.components -> data[i].s, "NOR") == 0)
-                    NOR(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
-                if (strcmp(self.components -> data[i].s, "NAND") == 0)
-                    NAND(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
-                if (strcmp(self.components -> data[i].s, "BUFFER") == 0)
-                    BUFFER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
+        if (list_count(self.selected, (unitype) i, 'i') > 0 || (renderX + 12 * self.globalsize > self.sxmin && renderX + -12 * self.globalsize < self.sxmax && renderY + 12 * self.globalsize > self.symin && renderY + -12 * self.globalsize < self.symax && self.selecting == 1)) {
+            if (self.groups -> data[i].i != -1 && list_count(selectedGroups, self.groups -> data[i], 'i') == 0) {
+                // printf("add %d\n", self.groups -> data[i].i);
+                list_append(selectedGroups, self.groups -> data[i], 'i');
+            }
+            list_append(memo, (unitype) 1, 'i');
+        } else {
+            list_append(memo, (unitype) 0, 'i');
         }
     }
+    for (int i = 1; i < len; i++) {
+        double renderX = (self.positions -> data[i * 3 - 2].d + self.screenX) * self.globalsize * 0.75;
+        double renderY = (self.positions -> data[i * 3 - 1].d + self.screenY) * self.globalsize * 0.75;
+        char inGroup = self.groups -> data[i].i != -1 && list_count(selectedGroups, self.groups -> data[i], 'i') > 0;
+        if (inGroup || memo -> data[i - 1].i) {
+            list_append(self.selectOb, (unitype) i, 'i');
+            turtlePenColor(self.themeColors[4 + self.theme], self.themeColors[5 + self.theme], self.themeColors[6 + self.theme]);
+        } else {
+            turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+        }
+        if (renderX + 15 * self.globalsize > -240 && renderX + -15 * self.globalsize < 240 && renderY + 15 * self.globalsize > -180 && renderY + -15 * self.globalsize < 180) {
+            if (strcmp(self.components -> data[i].s, "POWER") == 0) {
+                if (self.io -> data[i * 3 - 1].i == 1) {
+                    if (list_count(self.selectOb, (unitype) i, 'i') > 0)
+                        POWER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d, 1, 1);
+                    else
+                        POWER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d, 1, 0);
+                } else {
+                    if (self.io -> data[i * 3 - 2].i == 1) {
+                        if (list_count(self.selectOb, (unitype) i, 'i') > 0)
+                            POWER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d, 2, 1);
+                        else
+                            POWER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d, 2, 0);
+                    } else {
+                        if (list_count(self.selectOb, (unitype) i, 'i') > 0)
+                            POWER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d, 0, 1);
+                        else
+                            POWER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d, 0, 0);
+                    }
+                }
+            }
+            if (strcmp(self.components -> data[i].s, "AND") == 0)
+                AND(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
+            if (strcmp(self.components -> data[i].s, "OR") == 0)
+                OR(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
+            if (strcmp(self.components -> data[i].s, "NOT") == 0)
+                NOT(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
+            if (strcmp(self.components -> data[i].s, "XOR") == 0)
+                XOR(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
+            if (strcmp(self.components -> data[i].s, "NOR") == 0)
+                NOR(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
+            if (strcmp(self.components -> data[i].s, "NAND") == 0)
+                NAND(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
+            if (strcmp(self.components -> data[i].s, "BUFFER") == 0)
+                BUFFER(&self, renderX, renderY, self.globalsize, self.positions -> data[i * 3].d);
+        }
+    }
+    list_free(selectedGroups);
     *selfp = self;
 }
 void renderWire(logicgates *selfp, double size) { // this function renders all the wiring in the window (a bit buggy if the components are outside the window, it doesn't do line intercepts and is likely bounded by total screen size but if I were to do bound intercepts I would do it in the turtle abstration)
@@ -1682,6 +1891,7 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                         self.selectY = self.my;
                     } else {
                         list_append(self.components, (unitype) self.holding, 's');
+                        list_append(self.groups, (unitype) -1, 'i');
                         list_append(self.positions, (unitype) (self.mx / self.globalsize - self.screenX), 'd');
                         list_append(self.positions, (unitype) (self.my / self.globalsize - self.screenY), 'd');
                         list_append(self.positions, (unitype) self.holdingAng, 'd');
@@ -1733,6 +1943,7 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                         }
                     } else {
                         list_append(self.components, (unitype) self.holding, 's');
+                        list_append(self.groups, (unitype) -1, 'i');
                         list_append(self.positions, (unitype) (self.mx / self.globalsize - self.screenX), 'd');
                         list_append(self.positions, (unitype) (self.my / self.globalsize - self.screenY), 'd');
                         list_append(self.positions, (unitype) self.holdingAng, 'd');
@@ -1899,8 +2110,17 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                             self.positions -> data[self.selected -> data[i].i * 3 - 1] = (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d + self.my / self.globalsize - self.screenY + self.offY - anchorY);
                         }
                     } else {
-                        self.positions -> data[self.hglmove * 3 - 2] = (unitype) (self.mx / self.globalsize - self.screenX + self.offX);
-                        self.positions -> data[self.hglmove * 3 - 1] = (unitype) (self.my / self.globalsize - self.screenY + self.offY);
+                        if (self.groupSelect -> length > 1) {
+                            double anchorX = self.positions -> data[self.hglmove * 3 - 2].d;
+                            double anchorY = self.positions -> data[self.hglmove * 3 - 1].d;
+                            for (int i = 1; i < self.groupSelect -> length; i++) {
+                                self.positions -> data[self.groupSelect -> data[i].i * 3 - 2] = (unitype) (self.positions -> data[self.groupSelect -> data[i].i * 3 - 2].d + self.mx / self.globalsize - self.screenX + self.offX - anchorX);
+                                self.positions -> data[self.groupSelect -> data[i].i * 3 - 1] = (unitype) (self.positions -> data[self.groupSelect -> data[i].i * 3 - 1].d + self.my / self.globalsize - self.screenY + self.offY - anchorY);
+                            }
+                        } else {
+                            self.positions -> data[self.hglmove * 3 - 2] = (unitype) (self.mx / self.globalsize - self.screenX + self.offX);
+                            self.positions -> data[self.hglmove * 3 - 1] = (unitype) (self.my / self.globalsize - self.screenY + self.offY);
+                        }
                     }
                     self.movingItems = 1;
                 }
@@ -1929,6 +2149,7 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
             self.mouseType = 0;
             if (self.mx > self.boundXmin && self.mx < self.boundXmax && self.my > self.boundYmin && self.my < self.boundYmax) {
                 list_append(self.components, (unitype) self.holding, 's');
+                list_append(self.groups, (unitype) -1, 'i');
                 list_append(self.positions, (unitype) (self.mx / self.globalsize - self.screenX), 'd');
                 list_append(self.positions, (unitype) (self.my / self.globalsize - self.screenY), 'd');
                 list_append(self.positions, (unitype) self.holdingAng, 'd');
@@ -2433,6 +2654,27 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
             addUndo(&self);
             self.keys[25] = 0;
         }
+    }
+    if (turtleKeyPressed(GLFW_KEY_G)) {
+        if (!self.keys[26]) {
+            // group selected
+            if (turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
+                groupSelected(&self, 1);
+            } else {
+                groupSelected(&self, 0);
+            }
+        }
+        self.keys[26] = 1;
+    } else {
+        self.keys[26] = 0;
+    }
+    if (turtleKeyPressed(GLFW_KEY_ESCAPE)) {
+        if (!self.keys[27]) {
+            self.holding = "a";
+        }
+        self.keys[27] = 1;
+    } else {
+        self.keys[27] = 0;
     }
     *selfp = self;
 }
