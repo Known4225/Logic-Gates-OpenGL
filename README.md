@@ -51,8 +51,8 @@ ctrl + y - redo
 
 
 ### Personal Feature Request:
- - Delete and replace POWER\
- - Grouping (select + group as unit)\
- - Grouped units "summonable" (without having to save and add file)\
+ - Delete and replace POWER
+ - Grouping (select + group as unit)
+ - Grouped units "summonable" (without having to save and add file)
  - Multiple tabs
  
