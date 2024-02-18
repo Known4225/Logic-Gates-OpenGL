@@ -65,13 +65,13 @@ typedef struct { // all logicgates variables (shared state) are defined here
     int wiringStart; // the component ID of the start of a (under construction) wire
     int wiringEnd; // the component ID of the end of a wire at the moment it is constructed
     
-    /* these 5 lists make up the data of the circuit */
+    /* these 6 lists make up the data of the circuit */
     list_t *components; // list of components (1 item for each component, a string with "POWER", "AND", etc), a component's "ID" or "Handle" is that component's index in this list
+    list_t *groups; // list of group data (1 element per component, integer represents group ID, -1 is no group. IDs start at 1. 0 is not used)
     list_t *positions; // list of component positions (3 items for each component, doubles specifying x, y, and angle)
     list_t *io; // list of binary inputs and outputs of a component (3 items for each component, 2 inputs followed by the output of the component (either a 0 or 1))
-    list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible connections (either 1 or 2), connection 1 (ID, 0 if none), connection 2 (ID, 0 if none)
+    list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible inputs (either 1 or 2), input 1 (ID, 0 if none), input 2 (ID, 0 if none)
     list_t *wiring; // list of component connections (3 items per connection, it goes sender (ID), reciever (ID), powered (0 or 1))
-    list_t *groups; // list of group data (1 element per component, integer represents group ID, -1 is no group. IDs start at 1. 0 is not used)
     
     char keys[32];
     list_t *groupSelect; // list of component IDs in the hovered/selected group
@@ -205,7 +205,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     list_append(self.selectOb, (unitype) "null", 's');
     self.copyBuffer = list_init();
     list_append(self.copyBuffer, (unitype) 'n', 'c');
-    for (int i = 1; i < 6; i++) {
+    for (int i = 1; i < 7; i++) {
         list_append(self.copyBuffer, (unitype) list_init(), 'r');
         list_append(self.copyBuffer -> data[i].r, (unitype) 'n', 'c');
     }
@@ -654,7 +654,7 @@ void wireSymbol(logicgates *selfp, double x, double y, double size, double rot) 
     turtleGoto(x + 12 * size, y + 9 * size);
     turtlePenUp();
 }
-void deleteComp(logicgates *selfp, int index) { // deletes a component
+void deleteComp(logicgates *selfp, int index, int replace) { // deletes a component
     /* bad foresight compelled me to identify a component's ID
     based on the index of it's position in the self.components array
     
@@ -671,6 +671,10 @@ void deleteComp(logicgates *selfp, int index) { // deletes a component
 
     We unfortunately live with our decisions, somehow this seemed like the best way to do this at the time, 
     and to be fair it was written in scratch
+
+    The replace feature:
+    This is delete and replace. This only works with POWER, NOT, and BUFFER
+    It takes the input (if any) of the gate and connects it to all outputs while deleting the gate
     */
     logicgates self = *selfp;
     int len = self.selected -> length;
@@ -678,13 +682,34 @@ void deleteComp(logicgates *selfp, int index) { // deletes a component
         if (self.selected -> data[i].i > index)
             self.selected -> data[i] = (unitype) (self.selected -> data[i].i - 1);
     }
+    int inputCon = -1;
+    if (replace && self.inpComp -> data[index * 3 - 2].i == 1) { // (strcmp(self.components -> data[index].s, "POWER") == 0 || strcmp(self.components -> data[index].s, "NOT") == 0 || strcmp(self.components -> data[index].s, "BUFFER") == 0)
+        // identify input (if any)
+        for (int j = 1; j < self.wiring -> length; j += 3) {
+            if (self.wiring -> data[j + 1].i == index) {
+                inputCon = self.wiring -> data[j].i;
+                break;
+            }
+        }
+        printf("inputCon: %d\n", inputCon);
+    }
     int i = 1;
     int k = (int) round((self.wiring -> length - 1) / 3);
     for (int j = 0; j < k; j++) {
         if (self.wiring -> data[i].i == index || self.wiring -> data[i + 1].i == index) {
-            list_delete(self.wiring, i);
-            list_delete(self.wiring, i);
-            list_delete(self.wiring, i);
+            if (inputCon == -1 || self.wiring -> data[i].i == index) {
+                // case: normal delete wire
+                list_delete(self.wiring, i);
+                list_delete(self.wiring, i);
+                list_delete(self.wiring, i);
+            } else {
+                if (self.wiring -> data[i + 1].i == index) {
+                    // case: replace wire
+                    printf("replace wire\n");
+                    self.wiring -> data[i].i = inputCon;
+                    i += 3;
+                }
+            }
         } else {
             if (self.wiring -> data[i].i > index)
                 self.wiring -> data[i] = (unitype) (self.wiring -> data[i].i - 1);
@@ -693,36 +718,49 @@ void deleteComp(logicgates *selfp, int index) { // deletes a component
             i += 3;
         }
     }
+    list_print(self.wiring);
     i = 2;
     k = (int) round((self.inpComp -> length - 1) / 3);
     for (int j = 0; j < k; j++) {
         if (self.inpComp -> data[i].i == index || self.inpComp -> data[i + 1].i == index) {
             if (self.inpComp -> data[i].i == index) {
-                if (!(self.inpComp -> data[i + 1].i == 0)) {
-                    if (self.inpComp -> data[i + 1].i > index)
+                if (self.inpComp -> data[i + 1].i == 0) {
+                    if (inputCon == -1) {
+                        // normal no replace wire
+                        self.inpComp -> data[i] = (unitype) 0;
+                        self.inpComp -> data[i + 1] = (unitype) 0;
+                    } else {
+                        // this can only happen to one input components
+                        self.inpComp -> data[i] = (unitype) inputCon;
+                        self.inpComp -> data[i + 1] = (unitype) 0;
+                    }
+                } else {
+                    if (self.inpComp -> data[i + 1].i > index) {
                         self.inpComp -> data[i] = (unitype) (self.inpComp -> data[i + 1].i - 1);
-                    else
+                    } else {
                         self.inpComp -> data[i] = self.inpComp -> data[i + 1];
+                    }
                     self.inpComp -> data[i + 1] = (unitype) 0;
                     self.io -> data[i] = (unitype) 0;
-                } else {    
-                    self.inpComp -> data[i] = (unitype) 0;
-                    self.inpComp -> data[i + 1] = (unitype) 0;
                 }
             } else {
-                if (self.inpComp -> data[i].i > index)
+                if (self.inpComp -> data[i].i > index) {
                     self.inpComp -> data[i] = (unitype) (self.inpComp -> data[i].i - 1);
+                }
                 self.inpComp -> data[i + 1] = (unitype) 0;
                 self.io -> data[i] = (unitype) 0;
             }
         } else {
-            if (self.inpComp -> data[i].i > index)
+            if (self.inpComp -> data[i].i > index) {
                 self.inpComp -> data[i] = (unitype) (self.inpComp -> data[i].i - 1);
-            if (self.inpComp -> data[i + 1].i > index)
+            }
+            if (self.inpComp -> data[i + 1].i > index) {
                 self.inpComp -> data[i + 1] = (unitype) (self.inpComp -> data[i + 1].i - 1);
+            }
         }
         i += 3;
     }
+    
     list_delete(self.components, index);
     list_delete(self.groups, index);
     list_delete(self.positions, index * 3 - 2);
@@ -734,6 +772,7 @@ void deleteComp(logicgates *selfp, int index) { // deletes a component
     list_delete(self.inpComp, index * 3 - 2);
     list_delete(self.inpComp, index * 3 - 2);
     list_delete(self.inpComp, index * 3 - 2);
+    list_print(self.inpComp);
     *selfp = self;
 }
 void groupSelected(logicgates *selfp, int ungroup) { // creates a group for selected components
@@ -895,7 +934,7 @@ void copyToBuffer(logicgates *selfp, char cut) {
     logicgates self = *selfp;
 
     // clear the copy buffer
-    for (int i = 1; i < 6; i++) {
+    for (int i = 1; i < 7; i++) {
         list_clear(self.copyBuffer -> data[i].r);
         list_append(self.copyBuffer -> data[i].r, (unitype) 'n', 'c');
     }
@@ -917,28 +956,29 @@ void copyToBuffer(logicgates *selfp, char cut) {
     k /= m1 - 1;
     for (int i = 1; i < m1; i++) {
         list_append(self.copyBuffer -> data[1].r, self.components -> data[self.selected -> data[i].i], 's');
-        list_append(self.copyBuffer -> data[2].r, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 2].d - j), 'd');
-        list_append(self.copyBuffer -> data[2].r, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d - k), 'd');
-        list_append(self.copyBuffer -> data[2].r, self.positions -> data[self.selected -> data[i].i * 3], 'd');
-        list_append(self.copyBuffer -> data[3].r, self.io -> data[self.selected -> data[i].i * 3 - 2], 'i');
-        list_append(self.copyBuffer -> data[3].r, self.io -> data[self.selected -> data[i].i * 3 - 1], 'i');
-        list_append(self.copyBuffer -> data[3].r, self.io -> data[self.selected -> data[i].i * 3], 'i');
-        list_append(self.copyBuffer -> data[4].r, self.inpComp -> data[self.selected -> data[i].i * 3 - 2], 'i');
+        list_append(self.copyBuffer -> data[2].r, self.groups -> data[self.selected -> data[i].i], 'i');
+        list_append(self.copyBuffer -> data[3].r, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 2].d - j), 'd');
+        list_append(self.copyBuffer -> data[3].r, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d - k), 'd');
+        list_append(self.copyBuffer -> data[3].r, self.positions -> data[self.selected -> data[i].i * 3], 'd');
+        list_append(self.copyBuffer -> data[4].r, self.io -> data[self.selected -> data[i].i * 3 - 2], 'i');
+        list_append(self.copyBuffer -> data[4].r, self.io -> data[self.selected -> data[i].i * 3 - 1], 'i');
+        list_append(self.copyBuffer -> data[4].r, self.io -> data[self.selected -> data[i].i * 3], 'i');
+        list_append(self.copyBuffer -> data[5].r, self.inpComp -> data[self.selected -> data[i].i * 3 - 2], 'i');
         // do not add l or 1, 1 will be subtracted later, as will the later l be added because it may change between copying and pasting
         if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') > 0) {
-            list_append(self.copyBuffer -> data[4].r, (unitype) (list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i')), 'i');
+            list_append(self.copyBuffer -> data[5].r, (unitype) (list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i')), 'i');
             if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
-                list_append(self.copyBuffer -> data[4].r, (unitype) (list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i')), 'i');
+                list_append(self.copyBuffer -> data[5].r, (unitype) (list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i')), 'i');
             } else {
-                list_append(self.copyBuffer -> data[4].r, (unitype) 0, 'i');
+                list_append(self.copyBuffer -> data[5].r, (unitype) 0, 'i');
             }
         } else {
             if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i') > 0) {
-                list_append(self.copyBuffer -> data[4].r, (unitype) (list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i')), 'i');
+                list_append(self.copyBuffer -> data[5].r, (unitype) (list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3], 'i')), 'i');
             } else {
-                list_append(self.copyBuffer -> data[4].r, (unitype) 0, 'i');
+                list_append(self.copyBuffer -> data[5].r, (unitype) 0, 'i');
             }
-            list_append(self.copyBuffer -> data[4].r, (unitype) 0, 'i');
+            list_append(self.copyBuffer -> data[5].r, (unitype) 0, 'i');
         }
     }
     /*
@@ -954,16 +994,16 @@ void copyToBuffer(logicgates *selfp, char cut) {
     int len = self.wiring -> length;
     for (int i = 1; i < len; i += 3) {
         if (list_count(self.selected, self.wiring -> data[i], 'i') > 0 && list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0) {
-            list_append(self.copyBuffer -> data[5].r, wireTemp -> data[list_find(self.selected, self.wiring -> data[i], 'i') - 1], 'i');
-            list_append(self.copyBuffer -> data[5].r, wireTemp -> data[list_find(self.selected, self.wiring -> data[i + 1], 'i') - 1], 'i');
-            list_append(self.copyBuffer -> data[5].r, (unitype) 0, 'i');
+            list_append(self.copyBuffer -> data[6].r, wireTemp -> data[list_find(self.selected, self.wiring -> data[i], 'i') - 1], 'i');
+            list_append(self.copyBuffer -> data[6].r, wireTemp -> data[list_find(self.selected, self.wiring -> data[i + 1], 'i') - 1], 'i');
+            list_append(self.copyBuffer -> data[6].r, (unitype) 0, 'i');
         }
     }
     list_free(wireTemp);
     if (cut) {
         len = self.selected -> length - 1;
         for (int i = 0; i < len; i++) {
-            deleteComp(&self, self.selected -> data[1].i);
+            deleteComp(&self, self.selected -> data[1].i, 0);
             list_delete(self.selected, 1);
         }
         self.selecting = 0;
@@ -983,41 +1023,51 @@ void pasteFromBuffer(logicgates *selfp, char toMouse) {
     double k = 0;
     int l = self.components -> length;
     int m1 = self.copyBuffer -> data[1].r -> length; // length of copied data
+    int groupCheck = -1; // are the pasted components grouped?
     for (int i = 1; i < m1; i++) {
         // component straight copied from copyBuffer
         list_append(self.components, self.copyBuffer -> data[1].r -> data[i], 's');
-        // groups are not saved in copyBuffer, since group data is not copied (for now)
+        // groups. If every component is in the same group then pasted components are grouped
         list_append(self.groups, (unitype) -1, 'i');
+        groupCheck = self.groups -> data[self.copyBuffer -> data[2].r -> data[i].i].i;
+        if (groupCheck > 0) {
+            for (int i = 2; i < self.copyBuffer -> data[2].r -> length; i++) {
+                if (self.groups -> data[self.copyBuffer -> data[2].r -> data[i].i].i != groupCheck) {
+                    groupCheck = 0;
+                    break;
+                }
+            }
+        }
         // positions must be translated by mouse and screen position to reflect their new location of pastement, center of mass has been precalculated
         if (toMouse) {
-            list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 2].d + self.mx / (self.globalsize * 0.75) - self.screenX), 'd');
-            list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 1].d + self.my / (self.globalsize * 0.75) - self.screenY), 'd');
+            list_append(self.positions, (unitype) (self.copyBuffer -> data[3].r -> data[i * 3 - 2].d + self.mx / (self.globalsize * 0.75) - self.screenX), 'd');
+            list_append(self.positions, (unitype) (self.copyBuffer -> data[3].r -> data[i * 3 - 1].d + self.my / (self.globalsize * 0.75) - self.screenY), 'd');
         } else {
             // to center of screen
-            list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 2].d - self.screenX), 'd');
-            list_append(self.positions, (unitype) (self.copyBuffer -> data[2].r -> data[i * 3 - 1].d - self.screenY), 'd');
+            list_append(self.positions, (unitype) (self.copyBuffer -> data[3].r -> data[i * 3 - 2].d - self.screenX), 'd');
+            list_append(self.positions, (unitype) (self.copyBuffer -> data[3].r -> data[i * 3 - 1].d - self.screenY), 'd');
         }
         
-        list_append(self.positions, self.copyBuffer -> data[2].r -> data[i * 3], 'd');
-        list_append(self.io, (unitype) self.copyBuffer -> data[3].r -> data[i * 3 - 2], 'i');
-        list_append(self.io, (unitype) self.copyBuffer -> data[3].r -> data[i * 3 - 1], 'i');
-        list_append(self.io, (unitype) self.copyBuffer -> data[3].r -> data[i * 3], 'i');
+        list_append(self.positions, self.copyBuffer -> data[3].r -> data[i * 3], 'd');
+        list_append(self.io, (unitype) self.copyBuffer -> data[4].r -> data[i * 3 - 2], 'i');
+        list_append(self.io, (unitype) self.copyBuffer -> data[4].r -> data[i * 3 - 1], 'i');
+        list_append(self.io, (unitype) self.copyBuffer -> data[4].r -> data[i * 3], 'i');
         // inpComp is more complicated
-        list_append(self.inpComp, (unitype) (l + self.copyBuffer -> data[4].r -> data[i * 3 - 2].i), 'i');
+        list_append(self.inpComp, (unitype) (l + self.copyBuffer -> data[5].r -> data[i * 3 - 2].i), 'i');
         // the next two could be 0, if they are, keep them at 0
-        if (self.copyBuffer -> data[4].r -> data[i * 3 - 1].i == 0)
+        if (self.copyBuffer -> data[5].r -> data[i * 3 - 1].i == 0)
             list_append(self.inpComp, (unitype) 0, 'i');
         else
-            list_append(self.inpComp, (unitype) (l + self.copyBuffer -> data[4].r -> data[i * 3 - 1].i - 1), 'i');
-        if (self.copyBuffer -> data[4].r -> data[i * 3].i == 0)
+            list_append(self.inpComp, (unitype) (l + self.copyBuffer -> data[5].r -> data[i * 3 - 1].i - 1), 'i');
+        if (self.copyBuffer -> data[5].r -> data[i * 3].i == 0)
             list_append(self.inpComp, (unitype) 0, 'i');
         else
-            list_append(self.inpComp, (unitype) (l + self.copyBuffer -> data[4].r -> data[i * 3].i - 1), 'i');
+            list_append(self.inpComp, (unitype) (l + self.copyBuffer -> data[5].r -> data[i * 3].i - 1), 'i');
     }
-    int len = self.copyBuffer -> data[5].r -> length;
+    int len = self.copyBuffer -> data[6].r -> length;
     for (int i = 1; i < len; i += 3) {
-        list_append(self.wiring, (unitype) (l + self.copyBuffer -> data[5].r -> data[i].i - 1), 'i');
-        list_append(self.wiring, (unitype) (l + self.copyBuffer -> data[5].r -> data[i + 1].i - 1), 'i');
+        list_append(self.wiring, (unitype) (l + self.copyBuffer -> data[6].r -> data[i].i - 1), 'i');
+        list_append(self.wiring, (unitype) (l + self.copyBuffer -> data[6].r -> data[i + 1].i - 1), 'i');
         list_append(self.wiring, (unitype) 0, 'i');
     }
     int i = self.components -> length - m1 + 1;
@@ -1026,6 +1076,9 @@ void pasteFromBuffer(logicgates *selfp, char toMouse) {
     for (int o = 1; o < m1; o++) {
         list_append(self.selected, (unitype) i, 'i');
         i += 1;
+    }
+    if (groupCheck > 0) {
+        groupSelected(&self, 0);
     }
     *selfp = self;
 }
@@ -2136,13 +2189,13 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
             if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
                 int len = self.selected -> length - 1;
                 for (int i = 0; i < len; i++) {
-                    deleteComp(&self, self.selected -> data[1].i);
+                    deleteComp(&self, self.selected -> data[1].i, 0);
                 }
                 self.selecting = 0;
                 list_clear(self.selectOb);
                 list_append(self.selectOb, (unitype) "null", 's');
             } else {
-                deleteComp(&self, self.hglmove);
+                deleteComp(&self, self.hglmove, 0);
             }
         }
         if (self.mouseType == 2 && !(strcmp(self.holding, "a") == 0) && !(strcmp(self.holding, "b") == 0)) {
@@ -2361,15 +2414,15 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
     } else {
         self.keys[6] = 0;
     }
-    if (turtleKeyPressed(GLFW_KEY_X)) { // x key
+    if (turtleKeyPressed(GLFW_KEY_X) || turtleKeyPressed(GLFW_KEY_BACKSPACE) || turtleKeyPressed(GLFW_KEY_DELETE)) { // x key
         if (!self.keys[7]) {
-            if (self.keys[21]) {
+            if (self.keys[21] && turtleKeyPressed(GLFW_KEY_X)) {
                 // cut
                 copyToBuffer(&self, 1);
             } else if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
                 int len = self.selected -> length - 1;
                 for (int i = 0; i < len; i++) {
-                    deleteComp(&self, self.selected -> data[1].i);
+                    deleteComp(&self, self.selected -> data[1].i, turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)); // really should've given shift a slot on keys[]
                     list_delete(self.selected, 1);
                 }
                 // update undo
@@ -2379,7 +2432,7 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
                 list_append(self.selectOb, (unitype) "null", 's');
             } else {
                 if (!(self.hlgcomp == 0)) {
-                    deleteComp(&self, self.hlgcomp);
+                    deleteComp(&self, self.hlgcomp, turtleKeyPressed(GLFW_KEY_LEFT_SHIFT));
                     // update undo
                     addUndo(&self);
                 }
