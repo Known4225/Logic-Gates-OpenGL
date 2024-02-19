@@ -684,7 +684,7 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
         }
     }
     int inputCon = -1;
-    if (replace && self.inpComp -> data[index * 3 - 2].i == 1) { // (strcmp(self.components -> data[index].s, "POWER") == 0 || strcmp(self.components -> data[index].s, "NOT") == 0 || strcmp(self.components -> data[index].s, "BUFFER") == 0)
+    if (replace && self.inpComp -> data[index * 3].i == 0) { // any component with one input
         // identify input (if any)
         for (int j = 1; j < self.wiring -> length; j += 3) {
             if (self.wiring -> data[j + 1].i == index) {
