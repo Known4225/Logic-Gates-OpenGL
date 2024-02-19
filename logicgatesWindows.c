@@ -7,7 +7,7 @@
 #include "include/win32Tools.h"
 #endif
 #ifdef OS_LINUX
-#include "include/ZenityFileDialog.h"
+#include "include/zenityFileDialog.h"
 #endif
 #include <time.h>
 #define STB_IMAGE_IMPLEMENTATION
@@ -679,8 +679,9 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
     logicgates self = *selfp;
     int len = self.selected -> length;
     for (int i = 1; i < len; i++) {
-        if (self.selected -> data[i].i > index)
+        if (self.selected -> data[i].i > index) {
             self.selected -> data[i] = (unitype) (self.selected -> data[i].i - 1);
+        }
     }
     int inputCon = -1;
     if (replace && self.inpComp -> data[index * 3 - 2].i == 1) { // (strcmp(self.components -> data[index].s, "POWER") == 0 || strcmp(self.components -> data[index].s, "NOT") == 0 || strcmp(self.components -> data[index].s, "BUFFER") == 0)
@@ -688,37 +689,45 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
         for (int j = 1; j < self.wiring -> length; j += 3) {
             if (self.wiring -> data[j + 1].i == index) {
                 inputCon = self.wiring -> data[j].i;
+                if (inputCon > index) {
+                    inputCon--;
+                }
                 break;
             }
         }
-        printf("inputCon: %d\n", inputCon);
+        // printf("inputCon: %d\n", inputCon);
     }
     int i = 1;
     int k = (int) round((self.wiring -> length - 1) / 3);
     for (int j = 0; j < k; j++) {
         if (self.wiring -> data[i].i == index || self.wiring -> data[i + 1].i == index) {
-            if (inputCon == -1 || self.wiring -> data[i].i == index) {
+            if (inputCon == -1 || self.wiring -> data[i + 1].i == index) {
                 // case: normal delete wire
                 list_delete(self.wiring, i);
                 list_delete(self.wiring, i);
                 list_delete(self.wiring, i);
             } else {
-                if (self.wiring -> data[i + 1].i == index) {
+                if (self.wiring -> data[i].i == index) {
                     // case: replace wire
-                    printf("replace wire\n");
+                    // printf("replace wire\n");
                     self.wiring -> data[i].i = inputCon;
+                    if (self.wiring -> data[i + 1].i > index) {
+                        self.wiring -> data[i + 1].i--;
+                    }
                     i += 3;
                 }
             }
         } else {
-            if (self.wiring -> data[i].i > index)
-                self.wiring -> data[i] = (unitype) (self.wiring -> data[i].i - 1);
-            if (self.wiring -> data[i + 1].i > index)
-                self.wiring -> data[i + 1] = (unitype) (self.wiring -> data[i + 1].i - 1);
+            if (self.wiring -> data[i].i > index) {
+                self.wiring -> data[i].i--;
+            }
+            if (self.wiring -> data[i + 1].i > index) {
+                self.wiring -> data[i + 1].i--;
+            }
             i += 3;
         }
     }
-    list_print(self.wiring);
+    // list_print(self.wiring);
     i = 2;
     k = (int) round((self.inpComp -> length - 1) / 3);
     for (int j = 0; j < k; j++) {
@@ -728,39 +737,57 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
                     if (inputCon == -1) {
                         // normal no replace wire
                         self.inpComp -> data[i] = (unitype) 0;
-                        self.inpComp -> data[i + 1] = (unitype) 0;
+                        // self.inpComp -> data[i + 1] = (unitype) 0; // it already is
+                        self.io -> data[i - 1] = (unitype) 0;
                     } else {
-                        // this can only happen to one input components
+                        // one input component replace case
                         self.inpComp -> data[i] = (unitype) inputCon;
-                        self.inpComp -> data[i + 1] = (unitype) 0;
+                        // self.inpComp -> data[i + 1] = (unitype) 0; // it already is
                     }
                 } else {
-                    if (self.inpComp -> data[i + 1].i > index) {
-                        self.inpComp -> data[i] = (unitype) (self.inpComp -> data[i + 1].i - 1);
+                    if (inputCon == -1) {
+                        // normal no replace wire (shift input2 to input1)
+                        if (self.inpComp -> data[i + 1].i > index) {
+                            self.inpComp -> data[i] = (unitype) (self.inpComp -> data[i + 1].i - 1);
+                        } else {
+                            self.inpComp -> data[i] = self.inpComp -> data[i + 1];
+                        }
+                        self.inpComp -> data[i + 1] = (unitype) 0;
+                        self.io -> data[i] = (unitype) 0;
                     } else {
-                        self.inpComp -> data[i] = self.inpComp -> data[i + 1];
+                        // case: replace (still shift)
+                        self.inpComp -> data[i] = (unitype) inputCon;
+                        // if (self.inpComp -> data[i + 1].i > index) {
+                        //     self.inpComp -> data[i + 1].i--;
+                        // }
+                    }
+                }
+            } else {
+                if (inputCon == -1) {
+                    // normal no replace wire
+                    if (self.inpComp -> data[i].i > index) {
+                        self.inpComp -> data[i].i--;
                     }
                     self.inpComp -> data[i + 1] = (unitype) 0;
                     self.io -> data[i] = (unitype) 0;
+                } else {
+                    // case: replace second input
+                    if (self.inpComp -> data[i].i > index) {
+                        self.inpComp -> data[i].i--;
+                    }
+                    self.inpComp -> data[i + 1] = (unitype) inputCon;
                 }
-            } else {
-                if (self.inpComp -> data[i].i > index) {
-                    self.inpComp -> data[i] = (unitype) (self.inpComp -> data[i].i - 1);
-                }
-                self.inpComp -> data[i + 1] = (unitype) 0;
-                self.io -> data[i] = (unitype) 0;
             }
         } else {
             if (self.inpComp -> data[i].i > index) {
-                self.inpComp -> data[i] = (unitype) (self.inpComp -> data[i].i - 1);
+                self.inpComp -> data[i].i--;
             }
             if (self.inpComp -> data[i + 1].i > index) {
-                self.inpComp -> data[i + 1] = (unitype) (self.inpComp -> data[i + 1].i - 1);
+                self.inpComp -> data[i + 1].i--;
             }
         }
         i += 3;
     }
-    
     list_delete(self.components, index);
     list_delete(self.groups, index);
     list_delete(self.positions, index * 3 - 2);
@@ -772,7 +799,7 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
     list_delete(self.inpComp, index * 3 - 2);
     list_delete(self.inpComp, index * 3 - 2);
     list_delete(self.inpComp, index * 3 - 2);
-    list_print(self.inpComp);
+    // list_print(self.inpComp);
     *selfp = self;
 }
 void groupSelected(logicgates *selfp, int ungroup) { // creates a group for selected components
@@ -2131,7 +2158,7 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                     } else {
                         turtleGoto((self.positions -> data[self.wiringStart * 3 - 2].d + self.screenX) * self.globalsize, (self.positions -> data[self.wiringStart * 3 - 1].d + self.screenY) * self.globalsize);
                         turtlePenDown();
-                        if (!(self.hlgcomp == 0) && !(self.hlgcomp == self.wiringStart) && (self.inpComp -> data[self.wiringEnd * 3 - 1].i == 0 || (self.inpComp -> data[self.wiringEnd * 3].i == 0 && !(self.inpComp -> data[self.wiringEnd * 3 - 1].i == self.wiringStart) && self.inpComp -> data[self.wiringEnd * 3 - 2].i > 1)))
+                        if ((self.hlgcomp != 0) && (self.wiringEnd > 0) && (self.hlgcomp != self.wiringStart) && (self.inpComp -> data[self.wiringEnd * 3 - 1].i == 0 || (self.inpComp -> data[self.wiringEnd * 3].i == 0 && (self.inpComp -> data[self.wiringEnd * 3 - 1].i != self.wiringStart) && self.inpComp -> data[self.wiringEnd * 3 - 2].i > 1)))
                             turtleGoto((self.positions -> data[self.hlgcomp * 3 - 2].d + self.screenX) * self.globalsize, (self.positions -> data[self.hlgcomp * 3 - 1].d + self.screenY) * self.globalsize);
                         else
                             turtleGoto(self.mx, self.my);
