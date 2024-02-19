@@ -1046,25 +1046,27 @@ void pasteFromBuffer(logicgates *selfp, char toMouse) {
     self.symax = 0;
     self.symin = 0;
     self.selecting = 3;
+
+    int groupCheck = -1; // are the pasted components grouped?
+    groupCheck = self.copyBuffer -> data[2].r -> data[1].i;
+    if (groupCheck > 0) {
+        for (int i = 2; i < self.copyBuffer -> data[2].r -> length; i++) {
+            if (self.copyBuffer -> data[2].r -> data[i].i != groupCheck) {
+                groupCheck = 0;
+                break;
+            }
+        }
+    }
+    
     double j = 0;
     double k = 0;
     int l = self.components -> length;
     int m1 = self.copyBuffer -> data[1].r -> length; // length of copied data
-    int groupCheck = -1; // are the pasted components grouped?
     for (int i = 1; i < m1; i++) {
         // component straight copied from copyBuffer
         list_append(self.components, self.copyBuffer -> data[1].r -> data[i], 's');
         // groups. If every component is in the same group then pasted components are grouped
         list_append(self.groups, (unitype) -1, 'i');
-        groupCheck = self.groups -> data[self.copyBuffer -> data[2].r -> data[i].i].i;
-        if (groupCheck > 0) {
-            for (int i = 2; i < self.copyBuffer -> data[2].r -> length; i++) {
-                if (self.groups -> data[self.copyBuffer -> data[2].r -> data[i].i].i != groupCheck) {
-                    groupCheck = 0;
-                    break;
-                }
-            }
-        }
         // positions must be translated by mouse and screen position to reflect their new location of pastement, center of mass has been precalculated
         if (toMouse) {
             list_append(self.positions, (unitype) (self.copyBuffer -> data[3].r -> data[i * 3 - 2].d + self.mx / (self.globalsize * 0.75) - self.screenX), 'd');
