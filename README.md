@@ -53,6 +53,7 @@ ctrl + y - redo
 
 
 ### Personal Feature Request:
+ - Simple replace: replace a component with another
  - Grouped units "summonable" (without having to save and add file)
  - Multiple tabs
  - Multiple colours? (customisable?)
