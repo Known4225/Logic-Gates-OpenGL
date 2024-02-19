@@ -902,9 +902,13 @@ void copySelected(logicgates *selfp) { // copies and pastes selected components
         list_append(self.positions, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 2].d + self.mx / (self.globalsize * 0.75) - self.screenX - j), 'd');
         list_append(self.positions, (unitype) (self.positions -> data[self.selected -> data[i].i * 3 - 1].d + self.my / (self.globalsize * 0.75) - self.screenY - k), 'd');
         list_append(self.positions, self.positions -> data[self.selected -> data[i].i * 3], 'd');
-        list_append(self.io, (unitype) self.io -> data[self.selected -> data[i].i * 3 - 2], 'i');
-        list_append(self.io, (unitype) self.io -> data[self.selected -> data[i].i * 3 - 1], 'i');
-        list_append(self.io, (unitype) self.io -> data[self.selected -> data[i].i * 3 ], 'i');
+        list_append(self.io, (unitype) 0, 'i');
+        if (strcmp(self.components -> data[i].s, "POWER") == 0) { // preserve toggle data
+            list_append(self.io, (unitype) self.io -> data[self.selected -> data[i].i * 3 - 1], 'i');
+        } else {
+            list_append(self.io, (unitype) 0, 'i');
+        }
+        list_append(self.io, (unitype) 0, 'i');
         list_append(self.inpComp, self.inpComp -> data[self.selected -> data[i].i * 3 - 2], 'i');
         if (list_count(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') > 0) {
             list_append(self.inpComp, (unitype) (l + list_find(self.selected, self.inpComp -> data[self.selected -> data[i].i * 3 - 1], 'i') - 1), 'i');
@@ -1046,25 +1050,27 @@ void pasteFromBuffer(logicgates *selfp, char toMouse) {
     self.symax = 0;
     self.symin = 0;
     self.selecting = 3;
+
+    int groupCheck = -1; // are the pasted components grouped?
+    groupCheck = self.copyBuffer -> data[2].r -> data[1].i;
+    if (groupCheck > 0) {
+        for (int i = 2; i < self.copyBuffer -> data[2].r -> length; i++) {
+            if (self.copyBuffer -> data[2].r -> data[i].i != groupCheck) {
+                groupCheck = 0;
+                break;
+            }
+        }
+    }
+    
     double j = 0;
     double k = 0;
     int l = self.components -> length;
     int m1 = self.copyBuffer -> data[1].r -> length; // length of copied data
-    int groupCheck = -1; // are the pasted components grouped?
     for (int i = 1; i < m1; i++) {
         // component straight copied from copyBuffer
         list_append(self.components, self.copyBuffer -> data[1].r -> data[i], 's');
         // groups. If every component is in the same group then pasted components are grouped
         list_append(self.groups, (unitype) -1, 'i');
-        groupCheck = self.groups -> data[self.copyBuffer -> data[2].r -> data[i].i].i;
-        if (groupCheck > 0) {
-            for (int i = 2; i < self.copyBuffer -> data[2].r -> length; i++) {
-                if (self.groups -> data[self.copyBuffer -> data[2].r -> data[i].i].i != groupCheck) {
-                    groupCheck = 0;
-                    break;
-                }
-            }
-        }
         // positions must be translated by mouse and screen position to reflect their new location of pastement, center of mass has been precalculated
         if (toMouse) {
             list_append(self.positions, (unitype) (self.copyBuffer -> data[3].r -> data[i * 3 - 2].d + self.mx / (self.globalsize * 0.75) - self.screenX), 'd');
@@ -1076,9 +1082,13 @@ void pasteFromBuffer(logicgates *selfp, char toMouse) {
         }
         
         list_append(self.positions, self.copyBuffer -> data[3].r -> data[i * 3], 'd');
-        list_append(self.io, (unitype) self.copyBuffer -> data[4].r -> data[i * 3 - 2], 'i');
-        list_append(self.io, (unitype) self.copyBuffer -> data[4].r -> data[i * 3 - 1], 'i');
-        list_append(self.io, (unitype) self.copyBuffer -> data[4].r -> data[i * 3], 'i');
+        list_append(self.io, (unitype) 0, 'i');
+        if (strcmp(self.components -> data[i].s, "POWER") == 0) { // preserve togged data
+            list_append(self.io, (unitype) self.copyBuffer -> data[4].r -> data[i * 3 - 1], 'i');
+        } else {
+            list_append(self.io, (unitype) 0, 'i');
+        }
+        list_append(self.io, (unitype) 0, 'i');
         // inpComp is more complicated
         list_append(self.inpComp, (unitype) (l + self.copyBuffer -> data[5].r -> data[i * 3 - 2].i), 'i');
         // the next two could be 0, if they are, keep them at 0
