@@ -45,7 +45,7 @@ void zenityFileDialogInit(char argv0[]) {
     strcpy(zenityFileDialog.selectedFilename, "null");
     zenityFileDialog.openOrSave = 0; // open by default
     zenityFileDialog.numExtensions = 0; // 0 means all extensions
-    zenityFileDialog.extensions = calloc(1, 8); // one extension
+    zenityFileDialog.extensions = malloc(1 * sizeof(char *)); // malloc list
 }
 
 void zenityFileDialogAddExtension(char *extension) {

@@ -49,11 +49,11 @@ ctrl + c - copy\
 ctrl + x - cut\
 ctrl + v - paste\
 ctrl + z - undo\
-ctrl + y - redo
+ctrl + y - redo\
+shift + x - delete and replace
 
 
 ### Personal Feature Request:
- - Simple replace: replace a component with another
  - Grouped units "summonable" (without having to save and add file)
  - Multiple tabs
  - Multiple colours? (customisable?)

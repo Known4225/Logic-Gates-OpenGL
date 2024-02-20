@@ -63,7 +63,7 @@ int win32ToolsInit() {
     strcpy(win32FileDialog.selectedFilename, "null");
     win32FileDialog.openOrSave = 0; // open by default
     win32FileDialog.numExtensions = 0; // 0 means all extensions
-    win32FileDialog.extensions = calloc(1, 8); // one extension
+    win32FileDialog.extensions = malloc(1 * sizeof(char *)); // malloc list
 
     /* initialise clipboard */
     if (!OpenClipboard(NULL)) { // initialises win32Clipboard.text as clipboard text data
@@ -174,7 +174,7 @@ int win32ClipboardSetText(const char *input) { // takes null terminated strings
 void win32FileDialogAddExtension(char *extension) {
     if (strlen(extension) <= 4) {
         win32FileDialog.numExtensions += 1;
-        win32FileDialog.extensions = realloc(win32FileDialog.extensions, win32FileDialog.numExtensions * 8);
+        win32FileDialog.extensions = realloc(win32FileDialog.extensions, win32FileDialog.numExtensions * sizeof(char *));
         win32FileDialog.extensions[win32FileDialog.numExtensions - 1] = strdup(extension);
     } else {
         printf("extension name: %s too long\n", extension);
@@ -207,7 +207,7 @@ int win32FileDialogPrompt(char openOrSave, char *filename) { // 0 - open, 1 - sa
             /* load file restrictions */
             if (win32FileDialog.numExtensions > 0) {
                 COMDLG_FILTERSPEC fileExtensions[1]; // just one filter
-                unsigned short buildFilter[7 * win32FileDialog.numExtensions + 1];
+                unsigned short buildFilter[10];
                 int j = 0;
                 for (int i = 0; i < win32FileDialog.numExtensions; i++) {
                     buildFilter[j] = (unsigned short) '*';

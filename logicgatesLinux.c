@@ -1,4 +1,4 @@
-// select OS
+/* select OS */
 // #define OS_WINDOWS
 #define OS_LINUX
 
@@ -179,18 +179,17 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     
     self.components = list_init();
     list_append(self.components, (unitype) "null", 's'); // they start with an 'n' char or "null" string so they are 1-indexed not 0-indexed because I'm a bad coder
-    self.inpComp = list_init();
-    list_append(self.inpComp, (unitype) 'n', 'c');
-    self.io = list_init();
-    list_append(self.io, (unitype) 'n', 'c');
-    self.positions = list_init();
-    list_append(self.positions, (unitype) 'n', 'c');
-    self.wiring = list_init();
-    list_append(self.wiring, (unitype) 'n', 'c');
-    self.wiring = list_init();
-    list_append(self.wiring, (unitype) 'n', 'c');
     self.groups = list_init();
     list_append(self.groups, (unitype) 'n', 'c');
+    self.positions = list_init();
+    list_append(self.positions, (unitype) 'n', 'c');
+    self.io = list_init();
+    list_append(self.io, (unitype) 'n', 'c');
+    self.inpComp = list_init();
+    list_append(self.inpComp, (unitype) 'n', 'c');
+    self.wiring = list_init();
+    list_append(self.wiring, (unitype) 'n', 'c');
+    
 
     for (int i = 0; i < 32; i++) {
         self.keys[i] = 0;
@@ -227,10 +226,10 @@ void clearAll(logicgates *selfp) { // clears the stage
     list_append(self.groups, (unitype) 'n', 'c');
     list_clear(self.positions);
     list_append(self.positions, (unitype) 'n', 'c');
-    list_clear(self.inpComp);
-    list_append(self.inpComp, (unitype) 'n', 'c');
     list_clear(self.io);
     list_append(self.io, (unitype) 'n', 'c');
+    list_clear(self.inpComp);
+    list_append(self.inpComp, (unitype) 'n', 'c');
     list_clear(self.wiring);
     list_append(self.wiring, (unitype) 'n', 'c');
     *selfp = self;
@@ -677,12 +676,8 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
     It takes the input (if any) of the gate and connects it to all outputs while deleting the gate
     */
     logicgates self = *selfp;
-    int len = self.selected -> length;
-    for (int i = 1; i < len; i++) {
-        if (self.selected -> data[i].i > index) {
-            self.selected -> data[i] = (unitype) (self.selected -> data[i].i - 1);
-        }
-    }
+    
+    // identify input to deleted component
     int inputCon = -1;
     if (replace && self.inpComp -> data[index * 3].i == 0) { // any component with one input
         // identify input (if any)
@@ -695,39 +690,88 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
                 break;
             }
         }
-        // printf("inputCon: %d\n", inputCon);
     }
+    // gather numInputs and numInputsHolding
+    char doDelete = 1;
+    int numInputs = self.inpComp -> data[index * 3 - 2].i; // numInputs is how many actual wire inputs are connected to this component
+    if (numInputs == 2 && self.inpComp -> data[index * 3].i == 0) {
+        // if it can support two but only has one
+        numInputs--;
+    }
+    if (self.inpComp -> data[index * 3 - 1].i == 0) {
+        // this is equivalent to 0 inputs
+        numInputs--;
+    }
+    int numInputsHolding = 0;
+    if (strcmp(self.holding, "a") != 0 && strcmp(self.holding, "b") != 0) {
+        numInputsHolding = self.compSlots -> data[list_find(self.compSlots, (unitype) self.holding, 's') + 1].i; // this is how many inputs can be taken by self.holding
+        if (replace && (numInputsHolding >= numInputs || numInputs == 0)) {
+            doDelete = 0;
+            inputCon = 0; // in the case where you replace a 2 input with another 2 input
+            // printf("replaced %s with %s\n", self.components -> data[index].s, self.holding);
+            // replace component with self.holding
+            free(self.components -> data[index].s);
+            self.components -> data[index].s = strdup(self.holding);
+            // group does not change
+            // position does not change
+            // io does not change
+            self.inpComp -> data[index * 3 - 2].i = numInputsHolding;
+            // other inpComp does not change
+            // wiring does not change
+        }
+    }
+    // reform selected components
+    if (inputCon == -1 || numInputsHolding < numInputs) {
+        int len = self.selected -> length;
+        for (int i = 1; i < len; i++) {
+            if (self.selected -> data[i].i > index) {
+                self.selected -> data[i] = (unitype) (self.selected -> data[i].i - 1);
+            }
+        }
+    }
+    // printf("%s %d %d %d\n", self.holding, numInputs, numInputsHolding, inputCon);
     int i = 1;
     int k = (int) round((self.wiring -> length - 1) / 3);
     for (int j = 0; j < k; j++) {
         if (self.wiring -> data[i].i == index || self.wiring -> data[i + 1].i == index) {
-            if (inputCon == -1 || self.wiring -> data[i + 1].i == index) {
-                // case: normal delete wire
+            if (inputCon == -1) {
                 list_delete(self.wiring, i);
                 list_delete(self.wiring, i);
                 list_delete(self.wiring, i);
             } else {
-                if (self.wiring -> data[i].i == index) {
-                    // case: replace wire
-                    // printf("replace wire\n");
-                    self.wiring -> data[i].i = inputCon;
-                    if (self.wiring -> data[i + 1].i > index) {
-                        self.wiring -> data[i + 1].i--;
-                    }
+                if (numInputsHolding >= numInputs) {
+                    // case: replace
+                    // no change in wiring
                     i += 3;
+                } else {
+                    if (self.wiring -> data[i + 1].i == index) {
+                        // case: normal delete wire
+                        list_delete(self.wiring, i);
+                        list_delete(self.wiring, i);
+                        list_delete(self.wiring, i);
+                    } else if (self.wiring -> data[i].i == index) {
+                        // case: replace wire
+                        self.wiring -> data[i].i = inputCon;
+                        if (self.wiring -> data[i + 1].i > index) {
+                            self.wiring -> data[i + 1].i--;
+                        }
+                        i += 3;
+                    }
                 }
             }
         } else {
-            if (self.wiring -> data[i].i > index) {
-                self.wiring -> data[i].i--;
-            }
-            if (self.wiring -> data[i + 1].i > index) {
-                self.wiring -> data[i + 1].i--;
+            if (inputCon == -1 || numInputsHolding < numInputs) {
+                // assume a component is getting deleted
+                if (self.wiring -> data[i].i > index) {
+                    self.wiring -> data[i].i--;
+                }
+                if (self.wiring -> data[i + 1].i > index) {
+                    self.wiring -> data[i + 1].i--;
+                }
             }
             i += 3;
         }
     }
-    // list_print(self.wiring);
     i = 2;
     k = (int) round((self.inpComp -> length - 1) / 3);
     for (int j = 0; j < k; j++) {
@@ -737,12 +781,15 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
                     if (inputCon == -1) {
                         // normal no replace wire
                         self.inpComp -> data[i] = (unitype) 0;
-                        // self.inpComp -> data[i + 1] = (unitype) 0; // it already is
                         self.io -> data[i - 1] = (unitype) 0;
                     } else {
-                        // one input component replace case
-                        self.inpComp -> data[i] = (unitype) inputCon;
-                        // self.inpComp -> data[i + 1] = (unitype) 0; // it already is
+                        if (numInputsHolding >= numInputs) {
+                            // case: replace
+                            // no change in inpComp
+                        } else {
+                            // one input component replace case
+                            self.inpComp -> data[i] = (unitype) inputCon;
+                        }
                     }
                 } else {
                     if (inputCon == -1) {
@@ -755,11 +802,13 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
                         self.inpComp -> data[i + 1] = (unitype) 0;
                         self.io -> data[i] = (unitype) 0;
                     } else {
-                        // case: replace (still shift)
-                        self.inpComp -> data[i] = (unitype) inputCon;
-                        // if (self.inpComp -> data[i + 1].i > index) {
-                        //     self.inpComp -> data[i + 1].i--;
-                        // }
+                        if (numInputsHolding >= numInputs) {
+                            // case: replace
+                            // no change in inpComp
+                        } else {
+                            // case: replace (still shift)
+                            self.inpComp -> data[i] = (unitype) inputCon;
+                        }
                     }
                 }
             } else {
@@ -771,35 +820,44 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
                     self.inpComp -> data[i + 1] = (unitype) 0;
                     self.io -> data[i] = (unitype) 0;
                 } else {
-                    // case: replace second input
-                    if (self.inpComp -> data[i].i > index) {
-                        self.inpComp -> data[i].i--;
+                    if (numInputsHolding >= numInputs) {
+                        // case: replace
+                        // no change in inpComp
+                    } else {
+                        // case: replace second input
+                        if (self.inpComp -> data[i].i > index) {
+                            self.inpComp -> data[i].i--;
+                        }
+                        self.inpComp -> data[i + 1] = (unitype) inputCon;
                     }
-                    self.inpComp -> data[i + 1] = (unitype) inputCon;
                 }
             }
         } else {
-            if (self.inpComp -> data[i].i > index) {
-                self.inpComp -> data[i].i--;
-            }
-            if (self.inpComp -> data[i + 1].i > index) {
-                self.inpComp -> data[i + 1].i--;
+            if (inputCon == -1 || numInputsHolding < numInputs) {
+                // assume a component is getting deleted
+                if (self.inpComp -> data[i].i > index) {
+                    self.inpComp -> data[i].i--;
+                }
+                if (self.inpComp -> data[i + 1].i > index) {
+                    self.inpComp -> data[i + 1].i--;
+                }
             }
         }
         i += 3;
     }
-    list_delete(self.components, index);
-    list_delete(self.groups, index);
-    list_delete(self.positions, index * 3 - 2);
-    list_delete(self.positions, index * 3 - 2);
-    list_delete(self.positions, index * 3 - 2);
-    list_delete(self.io, index * 3 - 2);
-    list_delete(self.io, index * 3 - 2);
-    list_delete(self.io, index * 3 - 2);
-    list_delete(self.inpComp, index * 3 - 2);
-    list_delete(self.inpComp, index * 3 - 2);
-    list_delete(self.inpComp, index * 3 - 2);
-    // list_print(self.inpComp);
+    if (doDelete) {
+        list_delete(self.components, index);
+        list_delete(self.groups, index);
+        list_delete(self.positions, index * 3 - 2);
+        list_delete(self.positions, index * 3 - 2);
+        list_delete(self.positions, index * 3 - 2);
+        list_delete(self.io, index * 3 - 2);
+        list_delete(self.io, index * 3 - 2);
+        list_delete(self.io, index * 3 - 2);
+        list_delete(self.inpComp, index * 3 - 2);
+        list_delete(self.inpComp, index * 3 - 2);
+        list_delete(self.inpComp, index * 3 - 2);
+    }
     *selfp = self;
 }
 void groupSelected(logicgates *selfp, int ungroup) { // creates a group for selected components
@@ -2456,17 +2514,24 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
             if (self.keys[21] && turtleKeyPressed(GLFW_KEY_X)) {
                 // cut
                 copyToBuffer(&self, 1);
-            } else if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
+            } else if (self.selecting > 1 && self.selected -> length > 1) {
                 int len = self.selected -> length - 1;
+                int j = 1;
                 for (int i = 0; i < len; i++) {
-                    deleteComp(&self, self.selected -> data[1].i, turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)); // really should've given shift a slot on keys[]
-                    list_delete(self.selected, 1);
+                    deleteComp(&self, self.selected -> data[j].i, turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)); // really should've given shift a slot on keys[]
+                    if (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0) {
+                        list_delete(self.selected, 1);
+                    } else {
+                        j++;
+                    }
                 }
                 // update undo
                 addUndo(&self);
-                self.selecting = 0;
-                list_clear(self.selectOb),
-                list_append(self.selectOb, (unitype) "null", 's');
+                if (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0) {
+                    self.selecting = 0;
+                    list_clear(self.selectOb),
+                    list_append(self.selectOb, (unitype) "null", 's');
+                }
             } else {
                 if (!(self.hlgcomp == 0)) {
                     deleteComp(&self, self.hlgcomp, turtleKeyPressed(GLFW_KEY_LEFT_SHIFT));
@@ -3022,7 +3087,6 @@ int main(int argc, char *argv[]) {
     win32ToolsInit();
     win32FileDialogAddExtension("txt"); // add txt to extension restrictions
     win32FileDialogAddExtension("lg"); // add lg to extension restrictions
-    printf("exe path: %s\n", win32FileDialog.executableFilepath);
     char constructedPath[MAX_PATH + 1];
     #endif
     #ifdef OS_LINUX
