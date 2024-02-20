@@ -2491,7 +2491,7 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
         if (!self.keys[5]) {
             unsigned long unixTime = (unsigned long) time(NULL);
             char preset[25];
-            sprintf(preset, "Untitled%lu.txt", unixTime);
+            sprintf(preset, "Untitled%lu.lg", unixTime);
             export(&self, preset);
         }
         self.keys[5] = 1;
