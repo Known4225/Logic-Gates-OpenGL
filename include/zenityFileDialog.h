@@ -19,7 +19,8 @@ This is similar to COMDLG_FILTERSPEC struct's pszName and pszSpec, so you can ad
 #include <string.h>
 
 typedef struct {
-    char filename[4097]; // output filename - maximum filepath is 4096 characters (?)
+    char executableFilepath[4097]; // filepath of executable
+    char selectedFilename[4097]; // output filename - maximum filepath is 4096 characters (?)
     char openOrSave; // 0 - open, 1 - save
     int numExtensions; // number of extensions
     char **extensions; // array of allowed extensions (7 characters long max (cuz *.json ))
@@ -27,8 +28,21 @@ typedef struct {
 
 zenityFileDialogObject zenityFileDialog;
 
-void zenityFileDialogInit() {
-    strcpy(zenityFileDialog.filename, "null");
+void zenityFileDialogInit(char argv0[]) {
+    /* get executable filepath */
+    FILE *exStringFile = popen("pwd", "r");
+    fscanf(exStringFile, "%s", zenityFileDialog.executableFilepath);
+    strcat(zenityFileDialog.executableFilepath, "/");
+    strcat(zenityFileDialog.executableFilepath, argv0);
+    
+    int index = strlen(zenityFileDialog.executableFilepath) - 1;
+    while (index > -1 && zenityFileDialog.executableFilepath[index] != '/') {
+        index--;
+    }
+    zenityFileDialog.executableFilepath[index + 1] = '\0';
+
+    /* initialise file dialog */
+    strcpy(zenityFileDialog.selectedFilename, "null");
     zenityFileDialog.openOrSave = 0; // open by default
     zenityFileDialog.numExtensions = 0; // 0 means all extensions
     zenityFileDialog.extensions = calloc(1, 8); // one extension
@@ -88,14 +102,14 @@ int zenityFileDialogPrompt(char openOrSave, char *prename) { // 0 - open, 1 - sa
     /* execute */
     // printf("%s\n", fullCommand);
     FILE* filenameStream = popen(fullCommand, "r");
-    if (fgets(zenityFileDialog.filename, 4097, filenameStream) == NULL) { // adds a \n before \0 (?)
+    if (fgets(zenityFileDialog.selectedFilename, 4097, filenameStream) == NULL) { // adds a \n before \0 (?)
         // printf("Error: fgets\n");
-        strcpy(zenityFileDialog.filename, "null");
+        strcpy(zenityFileDialog.selectedFilename, "null");
         return -1;
     }
     for (int i = 0; i < 4096; i++) {
-        if (zenityFileDialog.filename[i] == '\n') {
-            zenityFileDialog.filename[i] = '\0'; // replace all newlines with null characters
+        if (zenityFileDialog.selectedFilename[i] == '\n') {
+            zenityFileDialog.selectedFilename[i] = '\0'; // replace all newlines with null characters
         }
     }
     // printf("Success, filename: %s\n", zenityFileDialog.filename);

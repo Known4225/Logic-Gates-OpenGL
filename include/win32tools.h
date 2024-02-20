@@ -33,7 +33,8 @@ Clipboard: https://learn.microsoft.com/en-us/windows/win32/dataxchg/clipboard
 #include <shobjidl.h>
 
 typedef struct {
-    char filename[263]; // output filename - maximum filepath is 260 characters (?)
+    char executableFilepath[MAX_PATH + 1]; // filepath of executable
+    char selectedFilename[MAX_PATH + 1]; // output filename - maximum filepath is 260 characters (?)
     char openOrSave; // 0 - open, 1 - save
     int numExtensions; // number of extensions
     char **extensions; // array of allowed extensions (7 characters long max (cuz *.json;))
@@ -47,15 +48,26 @@ win32FileDialogObject win32FileDialog;
 win32ClipboardObject win32Clipboard;
 
 int win32ToolsInit() {
+    /* get executable filepath */
+    GetModuleFileNameA(NULL, win32FileDialog.executableFilepath, MAX_PATH);
+    if (GetLastError() != ERROR_SUCCESS) {
+        strcpy(win32FileDialog.executableFilepath, "null");
+        printf("error: could not retrieve executable filepath\n");
+    }
+    int index = strlen(win32FileDialog.executableFilepath) - 1;
+    while (index > -1 && win32FileDialog.executableFilepath[index] != '\\' && win32FileDialog.executableFilepath[index] != '/') {
+        index--;
+    }
+    win32FileDialog.executableFilepath[index + 1] = '\0';
     /* initialise file dialog */
-    strcpy(win32FileDialog.filename, "null");
+    strcpy(win32FileDialog.selectedFilename, "null");
     win32FileDialog.openOrSave = 0; // open by default
     win32FileDialog.numExtensions = 0; // 0 means all extensions
     win32FileDialog.extensions = calloc(1, 8); // one extension
 
     /* initialise clipboard */
     if (!OpenClipboard(NULL)) { // initialises win32Clipboard.text as clipboard text data
-        printf("error: could not open clipboard\n");
+        printf("error: could not open clipboard (windows)\n");
         return -1;
     }
     HANDLE clipboardHandle = GetClipboardData(CF_TEXT);
@@ -183,9 +195,9 @@ int win32FileDialogPrompt(char openOrSave, char *filename) { // 0 - open, 1 - sa
             /* configure autofill filename */
             if (openOrSave == 1 && strcmp(filename, "null") != 0) {
                 int i = 0;
-                unsigned short prename[260];
-                while (filename[i] != '\0' && i < 260) {
-                    prename[i] = filename[i];
+                unsigned short prename[MAX_PATH + 1];
+                while (filename[i] != '\0' && i < MAX_PATH + 1) {
+                    prename[i] = filename[i]; // convert from char to WCHAR
                     i++;
                 }
                 prename[i] = '\0';
@@ -233,11 +245,11 @@ int win32FileDialogPrompt(char openOrSave, char *filename) { // 0 - open, 1 - sa
                 hr = psiResult -> lpVtbl -> GetDisplayName(psiResult, SIGDN_FILESYSPATH, &pszFilePath); // extracts path name
                 if (SUCCEEDED(hr)) {
                     int i = 0;
-                    while (pszFilePath[i] != '\0' && i < 260) {
-                        win32FileDialog.filename[i] = pszFilePath[i]; // convert from WCHAR to char
+                    while (pszFilePath[i] != '\0' && i < MAX_PATH + 1) {
+                        win32FileDialog.selectedFilename[i] = pszFilePath[i]; // convert from WCHAR to char
                         i++;
                     }
-                    win32FileDialog.filename[i] = '\0';
+                    win32FileDialog.selectedFilename[i] = '\0';
                     CoTaskMemFree(pszFilePath);
                     return 0;
                 }

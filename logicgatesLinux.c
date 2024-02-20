@@ -2393,25 +2393,25 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
             // this activates when you hit ctrl+s on the first frame of the s button press
             // do save routine
             #ifdef OS_WINDOWS
-            if (strcmp(win32FileDialog.filename, "null") == 0) {
+            if (strcmp(win32FileDialog.selectedFilename, "null") == 0) {
                 if (win32FileDialogPrompt(1, "") != -1) {
-                    printf("Saved to: %s\n", win32FileDialog.filename);
-                    export(&self, win32FileDialog.filename);
+                    printf("Saved to: %s\n", win32FileDialog.selectedFilename);
+                    export(&self, win32FileDialog.selectedFilename);
                 }
             } else {
-                printf("Saved to: %s\n", win32FileDialog.filename);
-                export(&self, win32FileDialog.filename);
+                printf("Saved to: %s\n", win32FileDialog.selectedFilename);
+                export(&self, win32FileDialog.selectedFilename);
             }
             #endif
             #ifdef OS_LINUX
-            if (strcmp(zenityFileDialog.filename, "null") == 0) {
+            if (strcmp(zenityFileDialog.selectedFilename, "null") == 0) {
                 if (zenityFileDialogPrompt(1, "") != -1) {
-                    printf("Saved to: %s\n", zenityFileDialog.filename);
-                    export(&self, zenityFileDialog.filename);
+                    printf("Saved to: %s\n", zenityFileDialog.selectedFilename);
+                    export(&self, zenityFileDialog.selectedFilename);
                 }
             } else {
-                printf("Saved to: %s\n", zenityFileDialog.filename);
-                export(&self, zenityFileDialog.filename);
+                printf("Saved to: %s\n", zenityFileDialog.selectedFilename);
+                export(&self, zenityFileDialog.selectedFilename);
             }
             #endif
         }
@@ -2843,30 +2843,30 @@ void parseRibbonOutput(logicgates *selfp) {
             if (ribbonRender.output[2] == 1) { // new
                 printf("New file created\n");
                 clearAll(&self);
-                strcpy(win32FileDialog.filename, "null");
+                strcpy(win32FileDialog.selectedFilename, "null");
             }
             if (ribbonRender.output[2] == 2) { // save
-                if (strcmp(win32FileDialog.filename, "null") == 0) {
+                if (strcmp(win32FileDialog.selectedFilename, "null") == 0) {
                     if (win32FileDialogPrompt(1, "") != -1) {
-                        printf("Saved to: %s\n", win32FileDialog.filename);
-                        export(&self, win32FileDialog.filename);
+                        printf("Saved to: %s\n", win32FileDialog.selectedFilename);
+                        export(&self, win32FileDialog.selectedFilename);
                     }
                 } else {
-                    printf("Saved to: %s\n", win32FileDialog.filename);
-                    export(&self, win32FileDialog.filename);
+                    printf("Saved to: %s\n", win32FileDialog.selectedFilename);
+                    export(&self, win32FileDialog.selectedFilename);
                 }
             }
             if (ribbonRender.output[2] == 3) { // save as
                 if (win32FileDialogPrompt(1, "") != -1) {
-                    printf("Saved to: %s\n", win32FileDialog.filename);
-                    export(&self, win32FileDialog.filename);
+                    printf("Saved to: %s\n", win32FileDialog.selectedFilename);
+                    export(&self, win32FileDialog.selectedFilename);
                 }
             }
             if (ribbonRender.output[2] == 4) { // load
                 if (win32FileDialogPrompt(0, "") != -1) {
-                    // printf("Loaded data from: %s\n", win32FileDialog.filename);
+                    // printf("Loaded data from: %s\n", win32FileDialog.selectedFilename);
                     clearAll(&self);
-                    import(&self, win32FileDialog.filename);
+                    import(&self, win32FileDialog.selectedFilename);
                     // update undo
                     addUndo(&self);
                 }
@@ -2896,9 +2896,9 @@ void parseRibbonOutput(logicgates *selfp) {
             }
             if (ribbonRender.output[2] == 6) { // add file
                 if (win32FileDialogPrompt(0, "") != -1) {
-                    // printf("Added data from: %s\n", win32FileDialog.filename);
-                    import(&self, win32FileDialog.filename);
-                    strcpy(win32FileDialog.filename, "null");
+                    // printf("Added data from: %s\n", win32FileDialog.selectedFilename);
+                    import(&self, win32FileDialog.selectedFilename);
+                    strcpy(win32FileDialog.selectedFilename, "null");
                     // update undo
                     addUndo(&self);
                 }
@@ -2924,30 +2924,30 @@ void parseRibbonOutput(logicgates *selfp) {
             if (ribbonRender.output[2] == 1) { // new
                 printf("New file created\n");
                 clearAll(&self);
-                strcpy(zenityFileDialog.filename, "null");
+                strcpy(zenityFileDialog.selectedFilename, "null");
             }
             if (ribbonRender.output[2] == 2) { // save
-                if (strcmp(zenityFileDialog.filename, "null") == 0) {
+                if (strcmp(zenityFileDialog.selectedFilename, "null") == 0) {
                     if (zenityFileDialogPrompt(1, "") != -1) {
-                        printf("Saved to: %s\n", zenityFileDialog.filename);
-                        export(&self, zenityFileDialog.filename);
+                        printf("Saved to: %s\n", zenityFileDialog.selectedFilename);
+                        export(&self, zenityFileDialog.selectedFilename);
                     }
                 } else {
-                    printf("Saved to: %s\n", zenityFileDialog.filename);
-                    export(&self, zenityFileDialog.filename);
+                    printf("Saved to: %s\n", zenityFileDialog.selectedFilename);
+                    export(&self, zenityFileDialog.selectedFilename);
                 }
             }
             if (ribbonRender.output[2] == 3) { // save as
                 if (zenityFileDialogPrompt(1, "") != -1) {
-                    printf("Saved to: %s\n", zenityFileDialog.filename);
-                    export(&self, zenityFileDialog.filename);
+                    printf("Saved to: %s\n", zenityFileDialog.selectedFilename);
+                    export(&self, zenityFileDialog.selectedFilename);
                 }
             }
             if (ribbonRender.output[2] == 4) { // load
                 if (zenityFileDialogPrompt(0, "") != -1) {
-                    // printf("Loaded data from: %s\n", zenityFileDialog.filename);
+                    // printf("Loaded data from: %s\n", zenityFileDialog.selectedFilename);
                     clearAll(&self);
-                    import(&self, zenityFileDialog.filename);
+                    import(&self, zenityFileDialog.selectedFilename);
                     // update undo
                     addUndo(&self);
                 }
@@ -2977,9 +2977,9 @@ void parseRibbonOutput(logicgates *selfp) {
             }
             if (ribbonRender.output[2] == 6) { // add file
                 if (zenityFileDialogPrompt(0, "") != -1) {
-                    // printf("Added data from: %s\n", zenityFileDialog.filename);
-                    import(&self, zenityFileDialog.filename);
-                    strcpy(zenityFileDialog.filename, "null");
+                    // printf("Added data from: %s\n", zenityFileDialog.selectedFilename);
+                    import(&self, zenityFileDialog.selectedFilename);
+                    strcpy(zenityFileDialog.selectedFilename, "null");
                     // update undo
                     addUndo(&self);
                 }
@@ -3016,29 +3016,56 @@ int main(int argc, char *argv[]) {
     glfwMakeContextCurrent(window);
     glfwSetWindowSizeLimits(window, GLFW_DONT_CARE, GLFW_DONT_CARE, windowHeight * 4 / 3, windowHeight);
     gladLoadGL();
+
+    /* initialise FileDialog */
+    #ifdef OS_WINDOWS
+    win32ToolsInit();
+    win32FileDialogAddExtension("txt"); // add txt to extension restrictions
+    win32FileDialogAddExtension("lg"); // add lg to extension restrictions
+    printf("exe path: %s\n", win32FileDialog.executableFilepath);
+    char constructedPath[MAX_PATH + 1];
+    #endif
+    #ifdef OS_LINUX
+    zenityFileDialogInit(argv[0]); // must include argv[0] to get executableFilepath
+    zenityFileDialogAddExtension("txt"); // add txt to extension restrictions
+    zenityFileDialogAddExtension("lg"); // add lg to extension restrictions
+    char constructedPath[4097];
+    #endif
+
     /* load logo */
     GLFWimage icon;
     int iconChannels;
-    unsigned char *iconPixels = stbi_load("include/LogicGatesIcon.jpg", &icon.width, &icon.height, &iconChannels, 4); // 4 color channels for RGBA
+    #ifdef OS_WINDOWS
+    strcpy(constructedPath, win32FileDialog.executableFilepath);
+    #endif
+    #ifdef OS_LINUX
+    strcpy(constructedPath, zenityFileDialog.executableFilepath);
+    #endif
+    strcat(constructedPath, "include/LogicGatesIcon.jpg");
+    unsigned char *iconPixels = stbi_load(constructedPath, &icon.width, &icon.height, &iconChannels, 4); // 4 color channels for RGBA
     icon.pixels = iconPixels;
     glfwSetWindowIcon(window, 1, &icon);
 
     /* initialize turtle */
     turtleInit(window, -240, -180, 240, 180);
     /* initialise textGL */
-    textGLInit(window, "include/fontBez.tgl");
-    /* initialise ribbon */
-    ribbonInit(window, "include/ribbonConfig.txt");
-
-    /* initialise FileDialog */
     #ifdef OS_WINDOWS
-    win32ToolsInit();
-    win32FileDialogAddExtension("txt"); // add txt to extension restrictions
+    strcpy(constructedPath, win32FileDialog.executableFilepath);
     #endif
     #ifdef OS_LINUX
-    zenityFileDialogInit();
-    zenityFileDialogAddExtension("txt"); // add txt to extension restrictions
+    strcpy(constructedPath, zenityFileDialog.executableFilepath);
     #endif
+    strcat(constructedPath, "include/fontBez.tgl");
+    textGLInit(window, constructedPath);
+    /* initialise ribbon */
+    #ifdef OS_WINDOWS
+    strcpy(constructedPath, win32FileDialog.executableFilepath);
+    #endif
+    #ifdef OS_LINUX
+    strcpy(constructedPath, zenityFileDialog.executableFilepath);
+    #endif
+    strcat(constructedPath, "include/ribbonConfig.txt");
+    ribbonInit(window, constructedPath);
     
     int tps = 60; // ticks per second (locked to fps in this case)
     clock_t start, end;
@@ -3050,10 +3077,10 @@ int main(int argc, char *argv[]) {
     if (argc > 1) {
         import(&self, argv[1]);
         #ifdef OS_WINDOWS
-        strcpy(win32FileDialog.filename, argv[1]);
+        strcpy(win32FileDialog.selectedFilename, argv[1]);
         #endif
         #ifdef OS_LINUX
-        strcpy(zenityFileDialog.filename, argv[1]);
+        strcpy(zenityFileDialog.selectedFilename, argv[1]);
         #endif
     }
     // update undo
