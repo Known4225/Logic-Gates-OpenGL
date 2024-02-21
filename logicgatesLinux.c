@@ -14,6 +14,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "include/stb_image.h" // THANK YOU https://github.com/nothings/stb
 
+GLFWwindow* window; // global window
+
 typedef struct { // all logicgates variables (shared state) are defined here
     double globalsize; // size multiplier - bigger means zoomed in
     double themeColors[55]; // rgb colour array, there are 9 colours, accross 2 themes each with 3 components for rgb
@@ -63,6 +65,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     list_t *compSlots; // a lookup table for which components have two inputs vs one
     char movingItems; // to keep track of movement of components so it can be detected and undone
     char wireHold; // whether you are toggled for wiring (hold space or click the wire symbol)
+    char gotoMainLoop; // exiting out of popup prompt
     int wiringStart; // the component ID of the start of a (under construction) wire
     int wiringEnd; // the component ID of the end of a wire at the moment it is constructed
     
@@ -118,6 +121,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.theme = 27;
     if (self.theme == 27) // for testing dark mode default
         ribbonDarkTheme();
+        popupDarkTheme();
     turtleBgColor(self.themeColors[25 + self.theme], self.themeColors[26 + self.theme], self.themeColors[27 + self.theme]);
     self.scrollSpeed = 1.15;
     self.rotateSpeed = 1;
@@ -159,6 +163,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.wireHold = 0;
     self.wiringStart = 0;
     self.wiringEnd = 0;
+    self.gotoMainLoop = 0;
     self.compSlots = list_init();
     list_append(self.compSlots, (unitype) "null", 's');
     list_append(self.compSlots, (unitype) "POWER", 's');
@@ -2908,11 +2913,12 @@ void scrollTick(logicgates *selfp) { // all the scroll wheel functionality is ha
 /* ribbon functionality */
 
 void parseRibbonOutput(logicgates *selfp) {
-    #ifdef OS_WINDOWS
+    
     logicgates self = *selfp;
     if (ribbonRender.output[0] == 1) {
         ribbonRender.output[0] = 0; // untoggle
         if (ribbonRender.output[1] == 0) { // file
+            #ifdef OS_WINDOWS
             if (ribbonRender.output[2] == 1) { // new
                 printf("New file created\n");
                 clearAll(&self);
@@ -2944,56 +2950,8 @@ void parseRibbonOutput(logicgates *selfp) {
                     addUndo(&self);
                 }
             }
-        }
-        if (ribbonRender.output[1] == 1) { // edit
-            if (ribbonRender.output[2] == 1) { // undo
-                undo(&self);
-            }
-            if (ribbonRender.output[2] == 2) { // redo
-                redo(&self);
-            }
-            if (ribbonRender.output[2] == 3) { // cut
-                copyToBuffer(&self, 1);
-                // update undo
-                addUndo(&self);
-            }
-            if (ribbonRender.output[2] == 4) { // copy
-                copyToBuffer(&self, 0);
-                // update undo
-                addUndo(&self);
-            }
-            if (ribbonRender.output[2] == 5) { // paste
-                pasteFromBuffer(&self, 0);
-                // update undo
-                addUndo(&self);
-            }
-            if (ribbonRender.output[2] == 6) { // add file
-                if (win32FileDialogPrompt(0, "") != -1) {
-                    // printf("Added data from: %s\n", win32FileDialog.selectedFilename);
-                    import(&self, win32FileDialog.selectedFilename);
-                    strcpy(win32FileDialog.selectedFilename, "null");
-                    // update undo
-                    addUndo(&self);
-                }
-            }
-        }
-        if (ribbonRender.output[1] == 2) { // view
-            if (ribbonRender.output[2] == 1) { // appearance
-                printf("appearance settings\n");
-            } 
-            if (ribbonRender.output[2] == 2) { // GLFW
-                printf("GLFW settings\n");
-            } 
-        }
-    }
-    *selfp = self;
-    #endif
-
-    #ifdef OS_LINUX
-    logicgates self = *selfp;
-    if (ribbonRender.output[0] == 1) {
-        ribbonRender.output[0] = 0; // untoggle
-        if (ribbonRender.output[1] == 0) { // file
+            #endif
+            #ifdef OS_LINUX
             if (ribbonRender.output[2] == 1) { // new
                 printf("New file created\n");
                 clearAll(&self);
@@ -3025,6 +2983,7 @@ void parseRibbonOutput(logicgates *selfp) {
                     addUndo(&self);
                 }
             }
+            #endif
         }
         if (ribbonRender.output[1] == 1) { // edit
             if (ribbonRender.output[2] == 1) { // undo
@@ -3049,6 +3008,16 @@ void parseRibbonOutput(logicgates *selfp) {
                 addUndo(&self);
             }
             if (ribbonRender.output[2] == 6) { // add file
+                #ifdef OS_WINDOWS
+                if (win32FileDialogPrompt(0, "") != -1) {
+                    // printf("Added data from: %s\n", win32FileDialog.selectedFilename);
+                    import(&self, win32FileDialog.selectedFilename);
+                    strcpy(win32FileDialog.selectedFilename, "null");
+                    // update undo
+                    addUndo(&self);
+                }
+                #endif
+                #ifdef OS_LINUX
                 if (zenityFileDialogPrompt(0, "") != -1) {
                     // printf("Added data from: %s\n", zenityFileDialog.selectedFilename);
                     import(&self, zenityFileDialog.selectedFilename);
@@ -3056,6 +3025,7 @@ void parseRibbonOutput(logicgates *selfp) {
                     // update undo
                     addUndo(&self);
                 }
+                #endif
             }
         }
         if (ribbonRender.output[1] == 2) { // view
@@ -3068,11 +3038,78 @@ void parseRibbonOutput(logicgates *selfp) {
         }
     }
     *selfp = self;
-    #endif
+}
+
+/* popup functionality */
+
+void parsePopupOutput(logicgates *selfp) {
+    logicgates self = *selfp;
+    if (popup.output[0] == 1) {
+        popup.output[0] = 0; // untoggle
+        if (popup.output[1] == 0) { // save
+            #ifdef OS_WINDOWS
+            if (win32FileDialogPrompt(1, "") != -1) {
+                printf("Saved to: %s\n", win32FileDialog.selectedFilename);
+                export(&self, win32FileDialog.selectedFilename);
+            } else {
+                turtle.close = 0;
+                glfwSetWindowShouldClose(window, 0);
+                self.gotoMainLoop = 1;
+            }
+            #endif
+            #ifdef OS_LINUX
+            if (zenityFileDialogPrompt(1, "") != -1) {
+                printf("Saved to: %s\n", zenityFileDialog.selectedFilename);
+                export(&self, zenityFileDialog.selectedFilename);
+            } else {
+                turtle.close = 0;
+                glfwSetWindowShouldClose(window, 0);
+                self.gotoMainLoop = 1;
+            }
+            #endif
+        }
+        if (popup.output[1] == 1) { // cancel
+            turtle.close = 0;
+            glfwSetWindowShouldClose(window, 0);
+            self.gotoMainLoop = 1;
+        }
+        if (popup.output[1] == 2) { // close
+            turtle.shouldClose = 1;
+        }
+    }
+    *selfp = self;
+}
+// used to be in main loop but
+void utilLoop(logicgates *selfp) {
+    turtleGetMouseCoords(); // get the mouse coordinates
+    if (turtle.mouseX > 240) { // bound mouse coordinates to window coordinates
+        selfp -> mx = 240;
+    } else {
+        if (turtle.mouseX < -240) {
+            selfp -> mx = -240;
+        } else {
+            selfp -> mx = turtle.mouseX;
+        }
+    }
+    if (turtle.mouseY > 180) {
+        selfp -> my = 180;
+    } else {
+        if (turtle.mouseY < -180) {
+            selfp -> my = -180;
+        } else {
+            selfp -> my = turtle.mouseY;
+        }
+    }
+    selfp -> mw = turtleMouseWheel();
+    if (selfp -> keys[3])
+        selfp -> mw += 1;
+    if (selfp -> keys[4])
+        selfp -> mw -= 1;
+    turtleClear();
 }
 
 int main(int argc, char *argv[]) {
-    GLFWwindow* window;
+    // GLFWwindow* window; // made into global at the top of file
     /* Initialize glfw */
     if (!glfwInit()) {
         return -1;
@@ -3146,7 +3183,7 @@ int main(int argc, char *argv[]) {
     strcpy(constructedPath, zenityFileDialog.executableFilepath);
     #endif
     strcat(constructedPath, "include/popupConfig.txt");
-    popupInit(constructedPath, -50, -50, 50, 50);
+    popupInit(constructedPath, -50, -20, 50, 20);
     
     int tps = 60; // ticks per second (locked to fps in this case)
     clock_t start, end;
@@ -3166,34 +3203,11 @@ int main(int argc, char *argv[]) {
     }
     // update undo
     addUndo(&self);
+    MAINLOOP: // spooky label
     int frame = 0;
     while (turtle.close == 0) {
         start = clock(); // for frame syncing
-        turtleGetMouseCoords(); // get the mouse coordinates
-        if (turtle.mouseX > 240) { // bound mouse coordinates to window coordinates
-            self.mx = 240;
-        } else {
-            if (turtle.mouseX < -240) {
-                self.mx = -240;
-            } else {
-                self.mx = turtle.mouseX;
-            }
-        }
-        if (turtle.mouseY > 180) {
-            self.my = 180;
-        } else {
-            if (turtle.mouseY < -180) {
-                self.my = -180;
-            } else {
-                self.my = turtle.mouseY;
-            }
-        }
-        self.mw = turtleMouseWheel();
-        if (self.keys[3])
-            self.mw += 1;
-        if (self.keys[4])
-            self.mw -= 1;
-        turtleClear();
+        utilLoop(&self); // setup
         renderComp(&self);
         renderWire(&self, self.globalsize);
         renderSidebar(&self, self.sidebar);
@@ -3216,7 +3230,7 @@ int main(int argc, char *argv[]) {
             NAND(&self, self.mx, self.my, self.globalsize, self.holdingAng);
         if (strcmp(self.holding, "BUFFER") == 0)
             BUFFER(&self, self.mx, self.my, self.globalsize, self.holdingAng);
-        ribbonDraw(); // do ribbon before mouseTick
+        ribbonUpdate(); // do ribbon before mouseTick
         parseRibbonOutput(&self);
         mouseTick(&self);
         hotkeyTick(&self);
@@ -3231,14 +3245,25 @@ int main(int argc, char *argv[]) {
             end = clock();
         }
     }
+    self.gotoMainLoop = 0;
     frame = 0;
-    printf("end %d\n", sizeof(logicgates));
     while (turtle.shouldClose == 0) {
         start = clock();
-        if (frame > -1)
-            turtle.shouldClose = 1;
+        if (frame > -1) {
+            // turtle.shouldClose = 1;
+        }
+        utilLoop(&self); // setup
+        renderComp(&self);
+        renderWire(&self, self.globalsize);
+        renderSidebar(&self, self.sidebar);
+        ribbonUpdate();
+        popupUpdate();
+        parsePopupOutput(&self);
         turtleUpdate();
         frame += 1;
+        if (self.gotoMainLoop) {
+            goto MAINLOOP; // spooky goto statement
+        }
         while ((double) (end - start) / CLOCKS_PER_SEC < (1 / (double) tps)) {
             end = clock();
         }

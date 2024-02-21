@@ -133,7 +133,7 @@ void ribbonDarkTheme() { // dark theme preset
     ribbonRender.colors[11] = 160.0;
 }
 
-void ribbonDraw() {
+void ribbonUpdate() {
     char shapeSave = turtle.penshape;
     double sizeSave = turtle.pensize;
     turtlePenSize(20);
