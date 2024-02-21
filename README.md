@@ -16,7 +16,7 @@ in the terminal (with no brackets)\
 I've included some demo projects in the "Demos" folder\
 Files can also be loaded in via the GUI menu
 
-This application is designed to be usable with just a mouse, but there are
+This application is designed to be usable with just a mouse, but there are\
 keybind shortcuts to make building circuits faster.
 
 ## Keybinds:
