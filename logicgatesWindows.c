@@ -2605,9 +2605,11 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
             if (self.theme == 0) {
                 self.theme = 27;
                 ribbonDarkTheme();
+                popupDarkTheme();
             } else {
                 self.theme = 0;
                 ribbonLightTheme();
+                popupLightTheme();
             }
             turtleBgColor(self.themeColors[25 + self.theme], self.themeColors[26 + self.theme], self.themeColors[27 + self.theme]);
         }
