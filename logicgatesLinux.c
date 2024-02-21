@@ -3,6 +3,7 @@
 #define OS_LINUX
 
 #include "include/ribbon.h"
+#include "include/popup.h"
 #ifdef OS_WINDOWS
 #include "include/win32Tools.h"
 #endif
@@ -3137,6 +3138,15 @@ int main(int argc, char *argv[]) {
     #endif
     strcat(constructedPath, "include/ribbonConfig.txt");
     ribbonInit(window, constructedPath);
+    /* initialise popup */
+    #ifdef OS_WINDOWS
+    strcpy(constructedPath, win32FileDialog.executableFilepath);
+    #endif
+    #ifdef OS_LINUX
+    strcpy(constructedPath, zenityFileDialog.executableFilepath);
+    #endif
+    strcat(constructedPath, "include/popupConfig.txt");
+    popupInit(constructedPath, -50, -50, 50, 50);
     
     int tps = 60; // ticks per second (locked to fps in this case)
     clock_t start, end;
@@ -3216,6 +3226,18 @@ int main(int argc, char *argv[]) {
         if (frame % 60 == 0) {
             frame = 0;
         }
+        frame += 1;
+        while ((double) (end - start) / CLOCKS_PER_SEC < (1 / (double) tps)) {
+            end = clock();
+        }
+    }
+    frame = 0;
+    printf("end %d\n", sizeof(logicgates));
+    while (turtle.shouldClose == 0) {
+        start = clock();
+        if (frame > -1)
+            turtle.shouldClose = 1;
+        turtleUpdate();
         frame += 1;
         while ((double) (end - start) / CLOCKS_PER_SEC < (1 / (double) tps)) {
             end = clock();

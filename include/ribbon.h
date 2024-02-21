@@ -90,10 +90,10 @@ int ribbonInit(GLFWwindow* window, const char *filename) { // read from config f
     fclose(configFile);
 
     for (int i = 0; i < ribbonRender.options -> length; i++) {
-        list_append(ribbonRender.lengths, (unitype) textGLGetStringLength(ribbonRender.options -> data[i].r -> data[0].s, strlen(ribbonRender.options -> data[i].r -> data[0].s), 7 * ribbonRender.ribbonSize), 'd');
+        list_append(ribbonRender.lengths, (unitype) textGLGetStringLength(ribbonRender.options -> data[i].r -> data[0].s, 7 * ribbonRender.ribbonSize), 'd');
         double max = 0;
         for (int j = 1; j < ribbonRender.options -> data[i].r -> length; j++) {
-            double cur = textGLGetStringLength(ribbonRender.options -> data[i].r -> data[j].s, strlen(ribbonRender.options -> data[i].r -> data[0].s), 7 * ribbonRender.ribbonSize);
+            double cur = textGLGetStringLength(ribbonRender.options -> data[i].r -> data[j].s, 7 * ribbonRender.ribbonSize);
             if (cur > max) {
                 max = cur;
             }

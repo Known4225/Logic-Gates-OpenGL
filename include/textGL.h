@@ -224,8 +224,8 @@ void renderChar(int index, double x, double y, double size) { // renders a singl
     turtlePenUp();
     // no variables in textGLRender are changed
 }
-
-double textGLGetLength(const unsigned int *text, int textLength, double size) { // gets the length of a string in pixels on the screen
+// gets the length of a string in pixels on the screen
+double textGLGetLength(const unsigned int *text, int textLength, double size) {
     size /= 175;
     double xTrack = 0;
     for (int i = 0; i < textLength; i++) {
@@ -241,8 +241,8 @@ double textGLGetLength(const unsigned int *text, int textLength, double size) { 
     xTrack -= 40 * size;
     return xTrack;
 }
-
-double textGLGetStringLength(const char *str, int textLength, double size) { // gets the length of a string in pixels on the screen
+// gets the length of a string in pixels on the screen
+double textGLGetStringLength(const char *str, double size) {
     int len = strlen(str);
     unsigned int converted[len];
     for (int i = 0; i < len; i++) {

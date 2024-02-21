@@ -22,7 +22,6 @@ extern void glEnd();
 
 typedef struct {
     GLFWwindow* window; // the window
-    char close;
     list_t *keyPressed; // global keyPressed and mousePressed list
     int screenbounds[2]; // list of screen bounds (pixels)
     int lastscreenbounds[2]; // list of screen bounds last frame
@@ -42,6 +41,8 @@ typedef struct {
     double y;
     char pen; // pen status (1 for down, 0 for up)
     char penshape; // 0 for circle, 1 for square, 2 for triangle
+    char close; // close changes to 1 when the user clicks the x on the window
+    char shouldClose; // controls whether the window terminates on turtle.close
     double circleprez; // how precise circles are (specifically, the number of sides of a circle with diameter e)
     double pensize; // turtle pen size
     double penr;
@@ -53,7 +54,8 @@ typedef struct {
 
 turtleglob turtle;
 
-void turtleSetWorldCoordinates(int minX, int minY, int maxX, int maxY) { // run this to set the bounds of the window in coordinates
+// run this to set the bounds of the window in coordinates
+void turtleSetWorldCoordinates(int minX, int minY, int maxX, int maxY) {
     glfwGetWindowSize(turtle.window, &turtle.screenbounds[0], &turtle.screenbounds[1]);
     turtle.initscreenbounds[0] = turtle.screenbounds[0];
     turtle.initscreenbounds[1] = turtle.screenbounds[1];
@@ -62,7 +64,8 @@ void turtleSetWorldCoordinates(int minX, int minY, int maxX, int maxY) { // run 
     turtle.bounds[2] = maxX;
     turtle.bounds[3] = maxY;
 }
-void keySense(GLFWwindow* window, int key, int scancode, int action, int mods) { // detect key presses
+// detect key presses
+void keySense(GLFWwindow* window, int key, int scancode, int action, int mods) {
     if (action == GLFW_PRESS) {
         list_append(turtle.keyPressed, (unitype) key, 'i');
     }
@@ -70,7 +73,8 @@ void keySense(GLFWwindow* window, int key, int scancode, int action, int mods) {
         list_remove(turtle.keyPressed, (unitype) key, 'i');
     }
 }
-void mouseSense(GLFWwindow* window, int button, int action, int mods) { // detect mouse clicks
+// detect mouse clicks
+void mouseSense(GLFWwindow* window, int button, int action, int mods) {
     if (action == GLFW_PRESS) {
         switch(button) {
             case GLFW_MOUSE_BUTTON_LEFT:
@@ -101,27 +105,34 @@ void mouseSense(GLFWwindow* window, int button, int action, int mods) { // detec
 void scrollSense(GLFWwindow* window, double xoffset, double yoffset) {
     turtle.scrollY = yoffset;
 }
-double turtleMouseWheel() { // the behavior with the mouse wheel is different since it can't be "on" or "off"
+// the behavior with the mouse wheel is different since it can't be "on" or "off"
+double turtleMouseWheel() {
     double temp = turtle.scrollY;
     turtle.scrollY = 0;
     return temp;
 }
-char turtleKeyPressed(int key) { // top level boolean output call to check if the key with code [key] is currently being held down
+// top level boolean output call to check if the key with code [key] is currently being held down. Uses the GLFW_KEY_X macros
+char turtleKeyPressed(int key) {
     return list_count(turtle.keyPressed, (unitype) key, 'c');
 }
-char turtleMouseDown() { // top level boolean output call to check if the left click button is currently being held down
+// top level boolean output call to check if the left click button is currently being held down
+char turtleMouseDown() {
     return list_count(turtle.keyPressed, (unitype) "m1", 's');
 }
-char turtleMouseRight() { // top level boolean output call to check if the right click button is currently being held down
+// top level boolean output call to check if the right click button is currently being held down
+char turtleMouseRight() {
     return list_count(turtle.keyPressed, (unitype) "m2", 's');
 }
-char turtleMouseMiddle() { // top level boolean output call to check if the middle mouse button is currently being held down
+// top level boolean output call to check if the middle mouse button is currently being held down
+char turtleMouseMiddle() {
     return list_count(turtle.keyPressed, (unitype) "m3", 's');
 }
-char turtleMouseMid() { // alternate duplicate of above
+// alternate duplicate of top level boolean output call to check if the middle mouse button is currently being held down
+char turtleMouseMid() {
     return list_count(turtle.keyPressed, (unitype) "m3", 's');
 }
-void turtleInit(GLFWwindow* window, int minX, int minY, int maxX, int maxY) { // initializes the turtletools module
+// initializes the turtletools module
+void turtleInit(GLFWwindow* window, int minX, int minY, int maxX, int maxY) {
     gladLoadGL();
     glfwMakeContextCurrent(window); // various glfw things
     glEnable(GL_ALPHA);
@@ -130,6 +141,7 @@ void turtleInit(GLFWwindow* window, int minX, int minY, int maxX, int maxY) { //
     glClearColor(1.0, 1.0, 1.0, 0.0); // white background by default
     turtle.window = window;
     turtle.close = 0;
+    turtle.shouldClose = 0;
     turtle.keyPressed = list_init();
     turtle.lastscreenbounds[0] = 0;
     turtle.lastscreenbounds[1] = 0;
@@ -154,7 +166,8 @@ void turtleInit(GLFWwindow* window, int minX, int minY, int maxX, int maxY) { //
     glfwSetMouseButtonCallback(window, mouseSense);
     glfwSetScrollCallback(window, scrollSense);
 }
-void turtleGetMouseCoords() { // gets the mouse coordinates
+// gets the mouse coordinates
+void turtleGetMouseCoords() {
     glfwGetWindowSize(turtle.window, &turtle.screenbounds[0], &turtle.screenbounds[1]); // get screenbounds
     glfwGetCursorPos(turtle.window, &turtle.mouseAbsX, &turtle.mouseAbsY); // get mouse positions (absolute)
     turtle.mouseX = turtle.mouseAbsX;
@@ -170,16 +183,19 @@ void turtleGetMouseCoords() { // gets the mouse coordinates
     turtle.mouseScaY -= (turtle.screenbounds[1] / 2) - ((turtle.bounds[3] + turtle.bounds[1]) / 2);
     turtle.mouseScaY *= ((double) (turtle.bounds[1] - turtle.bounds[3]) / (double) turtle.screenbounds[1]);
 }
-void turtleBgColor(double r, double g, double b) { // set the background color
+// set the background color
+void turtleBgColor(double r, double g, double b) {
     glClearColor(r / 255, g / 255, b / 255, 0.0);
 }
-void turtlePenColor(double r, double g, double b) { // set the pen color
+// set the pen color
+void turtlePenColor(double r, double g, double b) {
     turtle.penr = r / 255;
     turtle.peng = g / 255;
     turtle.penb = b / 255;
     turtle.pena = 0.0;
 }
-void turtlePenColorAlpha(double r, double g, double b, double a) { // set the pen color (with transparency)
+// set the pen color (with transparency)
+void turtlePenColorAlpha(double r, double g, double b, double a) {
     turtle.penr = r / 255;
     turtle.peng = g / 255;
     turtle.penb = b / 255;
@@ -188,10 +204,12 @@ void turtlePenColorAlpha(double r, double g, double b, double a) { // set the pe
 void turtlePenSize(double size) {
     turtle.pensize = size * 0.5; // ensures pensize matches pixel size (a pen size of 240 will be 240 coordinates long)
 }
-void turtleClear() { // clears all the pen drawings
+// clears all the pen drawings
+void turtleClear() {
     list_free(turtle.penPos);
     turtle.penPos = list_init();
 }
+// pen down
 void turtlePenDown() {
     if (turtle.pen == 0) {
         turtle.pen = 1;
@@ -224,6 +242,7 @@ void turtlePenDown() {
         }
     }
 }
+// lift the pen
 void turtlePenUp() {
     if (turtle.pen == 1) {
         turtle.pen = 0;
@@ -240,6 +259,7 @@ void turtlePenUp() {
         }
     }
 }
+// set the pen shape ("circle", "square", "triangle", "none", or "connected")
 void turtlePenShape(char *selection) {
     if (strcmp(selection, "circle") == 0 || strcmp(selection, "Circle") == 0) {
         turtle.penshape = 0;
@@ -260,10 +280,12 @@ void turtlePenShape(char *selection) {
         turtle.penshape = 5;
     }
 }
+// set the circle precision
 void turtlePenPrez(double prez) {
     turtle.circleprez = prez;
 }
-void turtleGoto(double x, double y) { // moves the turtle to a coordinate
+// moves the turtle to a coordinate
+void turtleGoto(double x, double y) {
     if (fabs(turtle.x - x) > 0.01 || fabs(turtle.y - y) > 0.01) {
         turtle.x = x;
         turtle.y = y;
@@ -298,8 +320,8 @@ void turtleGoto(double x, double y) { // moves the turtle to a coordinate
         }
     }
 }
-void turtleCircleRender(double x, double y, double rad, double r, double g, double b, double a, double xfact, double yfact, double prez) { // draws a circle at the specified x and y (coordinates)
-    // printf("rendering circle %lf\n", prez);
+// draws a circle at the specified x and y (coordinates)
+void turtleCircleRender(double x, double y, double rad, double r, double g, double b, double a, double xfact, double yfact, double prez) {
     char colorChange = 0;
     if (r != turtle.currentColor[0]) {colorChange = 1;}
     if (g != turtle.currentColor[1]) {colorChange = 1;}
@@ -318,7 +340,8 @@ void turtleCircleRender(double x, double y, double rad, double r, double g, doub
     }
     glEnd();
 }
-void turtleSquareRender(double x1, double y1, double x2, double y2, double r, double g, double b, double a, double xfact, double yfact) { // draws a square
+// draws a square
+void turtleSquareRender(double x1, double y1, double x2, double y2, double r, double g, double b, double a, double xfact, double yfact) {
     char colorChange = 0;
     if (r != turtle.currentColor[0]) {colorChange = 1;}
     if (g != turtle.currentColor[1]) {colorChange = 1;}
@@ -338,7 +361,8 @@ void turtleSquareRender(double x1, double y1, double x2, double y2, double r, do
     glVertex2d(x1 * xfact, y2 * yfact);
     glEnd();
 }
-void turtleTriangleRender(double x1, double y1, double x2, double y2, double x3, double y3, double r, double g, double b, double a, double xfact, double yfact) { // draws a triangle
+// draws a triangle
+void turtleTriangleRender(double x1, double y1, double x2, double y2, double x3, double y3, double r, double g, double b, double a, double xfact, double yfact) {
     char colorChange = 0;
     if (r != turtle.currentColor[0]) {colorChange = 1;}
     if (g != turtle.currentColor[1]) {colorChange = 1;}
@@ -357,7 +381,8 @@ void turtleTriangleRender(double x1, double y1, double x2, double y2, double x3,
     glVertex2d(x3 * xfact, y3 * yfact);
     glEnd();
 }
-void turtleTriangle(double x1, double y1, double x2, double y2, double x3, double y3, double r, double g, double b, double a) { // adds a (blit) triangle to the pipeline (for better speed)
+// adds a (blit) triangle to the pipeline (for better speed)
+void turtleTriangle(double x1, double y1, double x2, double y2, double x3, double y3, double r, double g, double b, double a) {
     list_append(turtle.penPos, (unitype) x1, 'd');
     list_append(turtle.penPos, (unitype) y1, 'd');
     list_append(turtle.penPos, (unitype) x2, 'd');
@@ -378,7 +403,8 @@ void turtleTriangle(double x1, double y1, double x2, double y2, double x3, doubl
     list_append(turtle.penPos, (unitype) 66, 'h'); // blit triangle signifier
     list_append(turtle.penPos, (unitype) 0, 'd'); // zero'd out (wasted space)
 }
-void turtleQuadRender(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4, double r, double g, double b, double a, double xfact, double yfact) { // draws a quadrilateral
+// draws a quadrilateral
+void turtleQuadRender(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4, double r, double g, double b, double a, double xfact, double yfact) {
     char colorChange = 0;
     if (r != turtle.currentColor[0]) {colorChange = 1;}
     if (g != turtle.currentColor[1]) {colorChange = 1;}
@@ -398,7 +424,8 @@ void turtleQuadRender(double x1, double y1, double x2, double y2, double x3, dou
     glVertex2d(x4 * xfact, y4 * yfact);
     glEnd();
 }
-void turtleQuad(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4, double r, double g, double b, double a) { // adds a (blit) quad to the pipeline (for better speed)
+// adds a (blit) quad to the pipeline (for better speed)
+void turtleQuad(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4, double r, double g, double b, double a) {
     list_append(turtle.penPos, (unitype) x1, 'd');
     list_append(turtle.penPos, (unitype) y1, 'd');
     list_append(turtle.penPos, (unitype) x2, 'd');
@@ -419,7 +446,8 @@ void turtleQuad(double x1, double y1, double x2, double y2, double x3, double y3
     list_append(turtle.penPos, (unitype) 67, 'h'); // blit quad signifier
     list_append(turtle.penPos, (unitype) y4, 'd');
 }
-void turtleUpdate() { // draws the turtle's path on the screen
+// draws the turtle's path on the screen
+void turtleUpdate() {
     char changed = 0;
     int len = turtle.penPos -> length;
     unitype *ren = turtle.penPos -> data;
@@ -530,15 +558,21 @@ void turtleUpdate() { // draws the turtle's path on the screen
     glfwPollEvents();
     if (glfwWindowShouldClose(turtle.window)) {
         turtle.close = 1;
-        glfwTerminate();
+        if (turtle.shouldClose) {
+            glfwTerminate();
+        }
+        
     }
+    
 }
-void turtleMainLoop() { // keeps the window open
+// keeps the window open while doing nothing else (from python turtleMainLoop())
+void turtleMainLoop() {
     while (turtle.close == 0) {
         turtleUpdate();
     }
 }
 
+// free turtle memory
 void turtleFree() {
     list_free(turtle.keyPressed);
     list_free(turtle.penPos);
