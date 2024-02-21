@@ -2017,6 +2017,7 @@ void renderSidebar(logicgates *selfp, char side) { // this function draws the si
 void mouseTick(logicgates *selfp) { // all the functionality for the mouse is handled in this beast of a function, it's an absolute mess
     logicgates self = *selfp;
     self.globalsize *= 0.75; // resizing
+    char updateQue = 0; // que for update undo
     if (turtleMouseDown()) {
         if (!(self.keys[0])) {
             self.keys[0] = 1;
@@ -2277,8 +2278,8 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
     } else {
         if (self.movingItems == 1) {
             self.movingItems = 0;
-            // update undo
-            addUndo(&self);
+            // que for update
+            updateQue = 1;
         }
         if (!(self.mx > self.boundXmin && self.mx < self.boundXmax && self.my > self.boundYmin && self.my < self.boundYmax) && self.hglmove > 0) {
             if (self.selecting > 1 && self.selected -> length > 1 && (strcmp(self.holding, "a") == 0 || strcmp(self.holding, "b") == 0)) {
@@ -2421,6 +2422,8 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                 }
                 list_free(wireSQueue);
                 list_free(wireEQueue);
+                // update undo
+                addUndo(&self);
             }
             if (self.positions -> length > self.hglmove * 3 && strcmp(self.components -> data[self.hglmove].s, "POWER") == 0 && self.positions -> data[self.hglmove * 3 - 2].d == self.tempX && self.positions -> data[self.hglmove * 3 - 1].d == self.tempY) { // questionable (double check for equality)
                 if (self.io -> data[self.hglmove * 3 - 1].i == 0) {
@@ -2435,6 +2438,10 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
             if (self.keys[0])
                 self.keys[0] = 0;
         }
+    }
+    if (updateQue) {
+        // update undo
+        addUndo(&self);
     }
     self.globalsize /= 0.75;
     *selfp = self;
