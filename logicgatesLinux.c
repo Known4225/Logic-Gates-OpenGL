@@ -3205,7 +3205,7 @@ int main(int argc, char *argv[]) {
     }
     // update undo
     addUndo(&self);
-    MAINLOOP: // spooky label
+    MAINLOOP: ; // spooky label
     int frame = 0;
     while (turtle.close == 0) {
         start = clock(); // for frame syncing
