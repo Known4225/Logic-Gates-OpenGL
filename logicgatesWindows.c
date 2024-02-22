@@ -1,6 +1,6 @@
 /* select OS */
-#define OS_WINDOWS
-// #define OS_LINUX
+// #define OS_WINDOWS
+#define OS_LINUX
 
 #include "include/ribbon.h"
 #include "include/popup.h"
@@ -36,7 +36,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     double boundXmax; // bound for mx
     double boundYmax; // bound for my
     double scaling; // idk
-    double GraphPrez; /* how many segments are drawn in the bezier curves used to construct gates with curves, 
+    double graphPrez; /* how many segments are drawn in the bezier curves used to construct gates with curves, 
     this should scale with the zoom level but actually i don't think it does that. I should add that */
     char *holding; // oh god
     double holdingAng; // idk
@@ -54,10 +54,10 @@ typedef struct { // all logicgates variables (shared state) are defined here
     double tempY; // these were made at a time when this project was small
     double offX; // another offset, but older
     double offY;
-    double FocalX; // these have to do with dragging the screen around
-    double FocalY; // they keep track of the mouse position
-    double FocalCSX;
-    double FocalCSY;
+    double focalX; // these have to do with dragging the screen around
+    double focalY; // they keep track of the mouse position
+    double focalCSX;
+    double focalCSY;
     double selectX; // i believe these are the bounds of the selection box
     double selectX2; // these are likely absolute coordinates, but i dont know
     double selectY;
@@ -66,6 +66,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     char movingItems; // to keep track of movement of components so it can be detected and undone
     char wireHold; // whether you are toggled for wiring (hold space or click the wire symbol)
     char gotoMainLoop; // exiting out of popup prompt
+    char saved; // is the current circuit saved
     int wiringStart; // the component ID of the start of a (under construction) wire
     int wiringEnd; // the component ID of the end of a wire at the moment it is constructed
     
@@ -130,7 +131,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.my = 0;
     self.scaling = 2;
     self.sidebar = 1;
-    self.GraphPrez = 12;
+    self.graphPrez = 12;
     self.holding = "a"; // in hindsight this should have been an int
     self.holdingAng = 90;
     self.indicators = 1;
@@ -151,10 +152,10 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.tempY = 0;
     self.offX = 0;
     self.offY = 0;
-    self.FocalX = 0;
-    self.FocalY = 0;
-    self.FocalCSX = 0;
-    self.FocalCSY = 0;
+    self.focalX = 0;
+    self.focalY = 0;
+    self.focalCSX = 0;
+    self.focalCSY = 0;
     self.selectX = 0;
     self.selectX2 = 0;
     self.selectY = 0;
@@ -164,6 +165,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.wiringStart = 0;
     self.wiringEnd = 0;
     self.gotoMainLoop = 0;
+    self.saved = 1;
     self.compSlots = list_init();
     list_append(self.compSlots, (unitype) "null", 's');
     list_append(self.compSlots, (unitype) "POWER", 's');
@@ -224,7 +226,8 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.specialPrez = 9; // in special cases such as the power block and ends of NOT blocks require more precise circles
     *selfp = self;
 }
-void clearAll(logicgates *selfp) { // clears the stage
+// clears the canvas
+void clearAll(logicgates *selfp) {
     logicgates self = *selfp;
     list_clear(self.components);
     list_append(self.components, (unitype) "null", 's');
@@ -238,9 +241,11 @@ void clearAll(logicgates *selfp) { // clears the stage
     list_append(self.inpComp, (unitype) 'n', 'c');
     list_clear(self.wiring);
     list_append(self.wiring, (unitype) 'n', 'c');
+    self.saved = 1;
     *selfp = self;
 }
-void import(logicgates *selfp, const char *filename) { // imports a file
+// imports a file
+void import(logicgates *selfp, const char *filename) {
     logicgates self = *selfp;
     printf("Attempting to load %s\n", filename);
     FILE *file = fopen(filename, "r");
@@ -360,7 +365,8 @@ void import(logicgates *selfp, const char *filename) { // imports a file
     }
     *selfp = self;
 }
-void export(logicgates *selfp, const char *filename) { // exports a file
+// exports working data a file
+void export(logicgates *selfp, const char *filename) {
     logicgates self = *selfp;
     FILE *file = fopen(filename, "w+");
     for (int i = 1; i < self.components -> length; i++) {
@@ -383,11 +389,13 @@ void export(logicgates *selfp, const char *filename) { // exports a file
     for (int i = 1; i < self.wiring -> length; i++) {
         fprintf(file, "%d ", self.wiring -> data[i].i);
     }
+    self.saved = 1;
     printf("Successfully saved to %s\n", filename);
     fclose(file);
     *selfp = self;
 }
-void POWER(logicgates *selfp, double x, double y, double size, double rot, char state, char select) { // draws a POWER component
+// draws a POWER component
+void POWER(logicgates *selfp, double x, double y, double size, double rot, char state, char select) {
     logicgates self = *selfp;
     rot /= 57.2958; // convert to radians
     turtleGoto(x, y);
@@ -421,7 +429,8 @@ void POWER(logicgates *selfp, double x, double y, double size, double rot, char 
     turtle.penshape = self.defaultShape;
     turtlePenPrez(self.defaultPrez);
 }
-void NOT(logicgates *selfp, double x, double y, double size, double rot) { // draws a NOT component
+// draws a NOT component
+void NOT(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
     rot /= 57.2958; // convert to radians
     double sinRot = sin(rot);
@@ -447,7 +456,8 @@ void NOT(logicgates *selfp, double x, double y, double size, double rot) { // dr
     turtle.penshape = self.defaultShape;
     turtlePenPrez(self.defaultPrez);
 }
-void AND(logicgates *selfp, double x, double y, double size, double rot) {// draws an AND component
+// draws an AND component
+void AND(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
     rot /= 57.2958; // convert to radians
     double sinRot = sin(rot);
@@ -457,16 +467,17 @@ void AND(logicgates *selfp, double x, double y, double size, double rot) {// dra
     turtlePenDown();
     turtleGoto(x + (4 * size * sinRot) - (-9 * size * cosRot), y + (4 * size * cosRot) + (-9 * size * sinRot));
     double i = 180;
-    for (int j = 0; j < self.GraphPrez + 1; j++) {
+    for (int j = 0; j < self.graphPrez + 1; j++) {
         double k = i / 57.2958;
         turtleGoto(x + ((4 * size + sin(k) * 8 * size) * sinRot) - (cos(k) * 9 * size * cosRot), y + ((4 * size + sin(k) * 8 * size) * cosRot) + (cos(k) * 9 * size * sinRot));
-        i -= (180 / self.GraphPrez);
+        i -= (180 / self.graphPrez);
     }
     turtleGoto(x + (-12 * size * sinRot) - (9 * size * cosRot), y + (-12 * size * cosRot) + (9 * size * sinRot));
     turtleGoto(x + (-12 * size * sinRot) - (-9 * size * cosRot), y + (-12 * size * cosRot) + (-9 * size * sinRot));
     turtlePenUp();
 }
-void OR(logicgates *selfp, double x, double y, double size, double rot) {// draws an OR component
+// draws an OR component
+void OR(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
     rot /= 57.2958; // convert to radians
     double sinRot = sin(rot);
@@ -476,33 +487,34 @@ void OR(logicgates *selfp, double x, double y, double size, double rot) {// draw
     turtlePenDown();
     double k;
     double i = 180;
-    for (int j = 0; j < self.GraphPrez + 1; j++) {
+    for (int j = 0; j < self.graphPrez + 1; j++) {
         k = i / 57.2958;
         double tempX = x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot);
         double tempY = y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot);
         turtleGoto(tempX, tempY);
-        i -= (180 / self.GraphPrez);
+        i -= (180 / self.graphPrez);
     }
-    i += (180 / self.GraphPrez);
-    for (int j = 0; j < (self.GraphPrez + 1) / 1.5; j++) {
+    i += (180 / self.graphPrez);
+    for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
         k = i / 57.2958;
         turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((9 * size - cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((9 * size - cos(k) * 18 * size) * sinRot));
-        i += (90 / self.GraphPrez);
+        i += (90 / self.graphPrez);
     }
     turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
     turtlePenUp();
     turtleGoto(x + (-11 * size * sinRot) - (9 * size * cosRot), y + (-11 * size * cosRot) + (9 * size * sinRot));
     turtlePenDown();
     i = 0;
-    for (int j = 0; j < (self.GraphPrez + 1) / 1.5; j++) {
+    for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
         k = i / 57.2958;
         turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((-9 * size + cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((-9 * size + cos(k) * 18 * size) * sinRot));
-        i += (90 / self.GraphPrez);
+        i += (90 / self.graphPrez);
     }
     turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
     turtlePenUp();
 }
-void XOR(logicgates *selfp, double x, double y, double size, double rot) {// draws an XOR component
+// draws an XOR component
+void XOR(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
     rot /= 57.2958; // convert to radians
     double sinRot = sin(rot);
@@ -510,50 +522,51 @@ void XOR(logicgates *selfp, double x, double y, double size, double rot) {// dra
     turtlePenSize(size * self.scaling);
     double k;
     double i = 180;
-    i -= 180 / self.GraphPrez;
+    i -= 180 / self.graphPrez;
     k = i / 57.2958;
     turtleGoto(x + ((-15 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-15 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
     turtlePenDown();
-    for (int j = 0; j < self.GraphPrez - 1; j++) {
+    for (int j = 0; j < self.graphPrez - 1; j++) {
         k = i / 57.2958;
         turtleGoto(x + ((-15 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-15 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
-        i -= 180 / self.GraphPrez;
+        i -= 180 / self.graphPrez;
     }
     turtlePenUp();
     i = 180;
-    i -= 180 / self.GraphPrez;
+    i -= 180 / self.graphPrez;
     k = i / 57.2958;
     turtleGoto(x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
     turtlePenDown();
-    for (int j = 0; j < self.GraphPrez - 1; j++) {
+    for (int j = 0; j < self.graphPrez - 1; j++) {
         k = i / 57.2958;
         turtleGoto(x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
-        i -= (180 / self.GraphPrez);
+        i -= (180 / self.graphPrez);
     }
-    i += (180 / self.GraphPrez);
-    for (int j = 0; j < (self.GraphPrez - 2) / 1.5; j++) {
+    i += (180 / self.graphPrez);
+    for (int j = 0; j < (self.graphPrez - 2) / 1.5; j++) {
         k = i / 57.2958;
         turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((9 * size - cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((9 * size - cos(k) * 18 * size) * sinRot));
-        i += (90 / self.GraphPrez);
+        i += (90 / self.graphPrez);
     }
     turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
     turtlePenUp();
     i = 180;
-    i -= 180 / self.GraphPrez;
+    i -= 180 / self.graphPrez;
     k = i / 57.2958;
     turtleGoto(x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
     turtlePenDown();
     i = 0;
-    i += 180 / self.GraphPrez;
-    for (int j = 0; j < (self.GraphPrez - 2) / 1.5; j++) {
+    i += 180 / self.graphPrez;
+    for (int j = 0; j < (self.graphPrez - 2) / 1.5; j++) {
         k = i / 57.2958;
         turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((-9 * size + cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((-9 * size + cos(k) * 18 * size) * sinRot));
-        i += (90 / self.GraphPrez);
+        i += (90 / self.graphPrez);
     }
     turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
     turtlePenUp();
 }
-void NOR(logicgates *selfp, double x, double y, double size, double rot) { // draws a NOR component
+// draws a NOR component
+void NOR(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
     rot /= 57.2958; // convert to radians
     double sinRot = sin(rot);
@@ -563,26 +576,26 @@ void NOR(logicgates *selfp, double x, double y, double size, double rot) { // dr
     turtlePenDown();
     double k;
     double i = 180;
-    for (int j = 0; j < self.GraphPrez + 1; j++) {
+    for (int j = 0; j < self.graphPrez + 1; j++) {
         k = i / 57.2958;
         turtleGoto(x + ((-13 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-13 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
-        i -= (180 / self.GraphPrez);
+        i -= (180 / self.graphPrez);
     }
-    i += (180 / self.GraphPrez);
-    for (int j = 0; j < (self.GraphPrez + 1) / 1.5; j++) {
+    i += (180 / self.graphPrez);
+    for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
         k = i / 57.2958;
         turtleGoto(x + ((-13 * size + sin(k) * 25 * size) * sinRot) - ((9 * size - cos(k) * 18 * size) * cosRot), y + ((-13 * size + sin(k) * 25 * size) * cosRot) + ((9 * size - cos(k) * 18 * size) * sinRot));
-        i += (90 / self.GraphPrez);
+        i += (90 / self.graphPrez);
     }
     turtleGoto(x + (8.3 * size * sinRot), y + (8.3 * size * cosRot));
     turtlePenUp();
     turtleGoto(x + (-13 * size * sinRot) - (9 * size * cosRot), y + (-13 * size * cosRot) + (9 * size * sinRot));
     turtlePenDown();
     i = 0;
-    for (int j = 0; j < (self.GraphPrez + 1) / 1.5; j++) {
+    for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
         k = i / 57.2958;
         turtleGoto(x + ((-13 * size + sin(k) * 25 * size) * sinRot) - ((-9 * size + cos(k) * 18 * size) * cosRot), y + ((-13 * size + sin(k) * 25 * size) * cosRot) + ((-9 * size + cos(k) * 18 * size) * sinRot));
-        i += (90 / self.GraphPrez);
+        i += (90 / self.graphPrez);
     }
     turtleGoto(x + (8.3 * size * sinRot), y + (8.3 * size * cosRot));
     turtlePenUp();
@@ -600,7 +613,8 @@ void NOR(logicgates *selfp, double x, double y, double size, double rot) { // dr
     turtle.penshape = self.defaultShape;
     turtlePenPrez(self.defaultPrez);
 }
-void NAND(logicgates *selfp, double x, double y, double size, double rot) { // draws a NAND component
+// draws a NAND component
+void NAND(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
     rot /= 57.2958; // convert to radians
     double sinRot = sin(rot);
@@ -611,10 +625,10 @@ void NAND(logicgates *selfp, double x, double y, double size, double rot) { // d
     turtleGoto(x + (4 * size * sinRot) - (-9 * size * cosRot), y + (4 * size * cosRot) + (-9 * size * sinRot));
     double k;
     double i = 180;
-    for (int j = 0; j < self.GraphPrez + 1; j++) {
+    for (int j = 0; j < self.graphPrez + 1; j++) {
         k = i / 57.2958;
         turtleGoto(x + ((4 * size + sin(k) * 8 * size) * sinRot) - (cos(k) * 9 * size * cosRot), y + ((4 * size + sin(k) * 8 * size) * cosRot) + (cos(k) * 9 * size * sinRot));
-        i -= (180 / self.GraphPrez);
+        i -= (180 / self.graphPrez);
     }
     turtleGoto(x + (-12 * size * sinRot) - (9 * size * cosRot), y + (-12 * size * cosRot) + (9 * size * sinRot));
     turtleGoto(x + (-12 * size * sinRot) - (-9 * size * cosRot), y + (-12 * size * cosRot) + (-9 * size * sinRot));
@@ -633,7 +647,8 @@ void NAND(logicgates *selfp, double x, double y, double size, double rot) { // d
     turtle.penshape = self.defaultShape;
     turtlePenPrez(self.defaultPrez);
 }
-void BUFFER(logicgates *selfp, double x, double y, double size, double rot) { // draws a BUFFER component
+// draws a BUFFER component
+void BUFFER(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
     rot /= 57.2958; // convert to radians
     double sinRot = sin(rot);
@@ -646,7 +661,8 @@ void BUFFER(logicgates *selfp, double x, double y, double size, double rot) { //
     turtleGoto(x + (-8 * size * sinRot) - (11 * size * cosRot), y + (-8 * size * cosRot) + (11 * size * sinRot));
     turtlePenUp();
 }
-void wireSymbol(logicgates *selfp, double x, double y, double size, double rot) { // draws the wireSymbol on the sidebar
+// draws the wireSymbol on the sidebar
+void wireSymbol(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
     rot /= 57.2958; // convert to radians
     // double sinRot = sin(rot);
@@ -943,7 +959,8 @@ void groupSelected(logicgates *selfp, int ungroup) { // creates a group for sele
     list_append(self.selected, (unitype) "null", 's');
     *selfp = self;
 }
-void copySelected(logicgates *selfp) { // copies and pastes selected components
+// copies and pastes selected components - direct paste
+void copySelected(logicgates *selfp) {
     logicgates self = *selfp;
     self.sxmax = 0;
     self.sxmin = 0;
@@ -1025,6 +1042,7 @@ void copySelected(logicgates *selfp) { // copies and pastes selected components
     }
     *selfp = self;
 }
+// adds selected data to copyBuffer
 void copyToBuffer(logicgates *selfp, char cut) {
     logicgates self = *selfp;
 
@@ -1107,6 +1125,7 @@ void copyToBuffer(logicgates *selfp, char cut) {
     }
     *selfp = self;
 }
+// pastes from copyBuffer
 void pasteFromBuffer(logicgates *selfp, char toMouse) {
     logicgates self = *selfp;
     self.sxmax = 0;
@@ -1183,8 +1202,10 @@ void pasteFromBuffer(logicgates *selfp, char toMouse) {
     }
     *selfp = self;
 }
-void addUndo(logicgates *selfp) { // adds current state of program to undo list
+// adds current state of program to undo list
+void addUndo(logicgates *selfp) {
     logicgates self = *selfp;
+    self.saved = 0;
     self.undoIndex++;
     while (self.undoBuffer -> length > self.undoIndex) {
         list_delete(self.undoBuffer, self.undoBuffer -> length - 1);
@@ -1372,7 +1393,8 @@ void snapToGrid(logicgates *selfp, double gridsize) { // snaps components to a g
     self.screenY += k;
     *selfp = self;
 }
-void selectionBox(logicgates *selfp, double x1, double y1, double x2, double y2) { // draws the selection box
+// draws the selection box
+void selectionBox(logicgates *selfp, double x1, double y1, double x2, double y2) {
     logicgates self = *selfp;
     turtlePenColor(self.themeColors[4 + self.theme], self.themeColors[5 + self.theme], self.themeColors[6 + self.theme]);
     turtlePenSize(self.globalsize * self.scaling);
@@ -1934,7 +1956,8 @@ void renderWire(logicgates *selfp, double size) { // this function renders all t
     self.globalsize /= 0.75;
     *selfp = self;
 }
-void renderSidebar(logicgates *selfp, char side) { // this function draws the sidebar, but really its never on the side it's a bottom or top bar
+// this function draws the sidebar, but really its never on the side it's a bottom or top bar
+void renderSidebar(logicgates *selfp, char side) {
     logicgates self = *selfp;
     turtlePenColorAlpha(self.themeColors[13 + self.theme], self.themeColors[14 + self.theme], self.themeColors[15 + self.theme], 55);
     turtlePenSize(30 * self.scaling);
@@ -2020,7 +2043,8 @@ void renderSidebar(logicgates *selfp, char side) { // this function draws the si
     turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
     *selfp = self;
 }
-void mouseTick(logicgates *selfp) { // all the functionality for the mouse is handled in this beast of a function, it's an absolute mess
+// all the functionality for the mouse is handled in this beast of a function, it's an absolute mess
+void mouseTick(logicgates *selfp) {
     logicgates self = *selfp;
     self.globalsize *= 0.75; // resizing
     char updateQue = 0; // que for update undo
@@ -2112,10 +2136,10 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                         // update undo
                         addUndo(&self);
                     }
-                    self.FocalX = self.mx;
-                    self.FocalY = self.my;
-                    self.FocalCSX = self.screenX;
-                    self.FocalCSY = self.screenY;
+                    self.focalX = self.mx;
+                    self.focalY = self.my;
+                    self.focalCSX = self.screenX;
+                    self.focalCSY = self.screenY;
                     if (!(self.selecting == 3) && !((self.keys[1] || self.wireHold == 1) && !(self.hlgcomp == 0))) {
                         self.wireHold = 0;
                         self.selecting = 0;
@@ -2129,10 +2153,10 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                 if (self.my > 169) { // on ribbon
                     // printf("on ribbon\n");
                     self.mouseType = 3;
-                    self.FocalX = self.mx;
-                    self.FocalY = self.my;
-                    self.FocalCSX = self.screenX;
-                    self.FocalCSY = self.screenY;
+                    self.focalX = self.mx;
+                    self.focalY = self.my;
+                    self.focalCSX = self.screenX;
+                    self.focalCSY = self.screenY;
                     self.selecting = 0;
                     self.sxmax = 0;
                     self.symax = 0;
@@ -2140,10 +2164,10 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
                     self.symin = 0;
                 } else { // on sidebar
                     self.mouseType = 1;
-                    self.FocalX = self.mx;
-                    self.FocalY = self.my;
-                    self.FocalCSX = self.screenX;
-                    self.FocalCSY = self.screenY;
+                    self.focalX = self.mx;
+                    self.focalY = self.my;
+                    self.focalCSX = self.screenX;
+                    self.focalCSY = self.screenY;
                     self.selecting = 0;
                     self.sxmax = 0;
                     self.symax = 0;
@@ -2194,10 +2218,10 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
             }
         } else {
             if (self.selecting == 1) {
-                self.FocalX = self.mx;
-                self.FocalY = self.my;
-                self.FocalCSX = self.screenX;
-                self.FocalCSY = self.screenY;
+                self.focalX = self.mx;
+                self.focalY = self.my;
+                self.focalCSX = self.screenX;
+                self.focalCSY = self.screenY;
                 self.selecting = 0;
                 self.sxmax = 0;
                 self.symax = 0;
@@ -2244,15 +2268,15 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
             if (self.mouseType != 3) {
                 if (self.hglmove == 0) {
                     if (self.keys[1] || self.wireHold == 1) {
-                        self.FocalX = self.mx;
-                        self.FocalY = self.my;
-                        self.FocalCSX = self.screenX;
-                        self.FocalCSY = self.screenY;
+                        self.focalX = self.mx;
+                        self.focalY = self.my;
+                        self.focalCSX = self.screenX;
+                        self.focalCSY = self.screenY;
                         self.wiringEnd = self.hlgcomp;
                     } else {
                         if (strcmp(self.holding, "a") == 0) {
-                            self.screenX = (self.mx - self.FocalX) / self.globalsize + self.FocalCSX;
-                            self.screenY = (self.my - self.FocalY) / self.globalsize + self.FocalCSY;
+                            self.screenX = (self.mx - self.focalX) / self.globalsize + self.focalCSX;
+                            self.screenY = (self.my - self.focalY) / self.globalsize + self.focalCSY;
                         }
                     }
                 } else {
@@ -2452,7 +2476,8 @@ void mouseTick(logicgates *selfp) { // all the functionality for the mouse is ha
     self.globalsize /= 0.75;
     *selfp = self;
 }
-void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is handled here
+// most of the keybind functionality is handled here
+void hotkeyTick(logicgates *selfp) {
     logicgates self = *selfp;
     if (turtleKeyPressed(GLFW_KEY_SPACE)) { // space
         self.keys[1] = 1;
@@ -2848,7 +2873,8 @@ void hotkeyTick(logicgates *selfp) { // most of the keybind functionality is han
     }
     *selfp = self;
 }
-void scrollTick(logicgates *selfp) { // all the scroll wheel functionality is handled here
+// all the scroll wheel functionality is handled here
+void scrollTick(logicgates *selfp) {
     logicgates self = *selfp;
     if (self.mw > 0) {
         if (self.keys[1] || turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
@@ -2948,6 +2974,7 @@ void parseRibbonOutput(logicgates *selfp) {
                     // printf("Loaded data from: %s\n", win32FileDialog.selectedFilename);
                     clearAll(&self);
                     import(&self, win32FileDialog.selectedFilename);
+                    self.saved = 1;
                     // update undo
                     addUndo(&self);
                 }
@@ -2981,6 +3008,7 @@ void parseRibbonOutput(logicgates *selfp) {
                     // printf("Loaded data from: %s\n", zenityFileDialog.selectedFilename);
                     clearAll(&self);
                     import(&self, zenityFileDialog.selectedFilename);
+                    self.saved = 1;
                     // update undo
                     addUndo(&self);
                 }
@@ -3010,13 +3038,12 @@ void parseRibbonOutput(logicgates *selfp) {
                 addUndo(&self);
             }
             if (ribbonRender.output[2] == 6) { // add file
+                int oldCompLen = self.components -> length;
                 #ifdef OS_WINDOWS
                 if (win32FileDialogPrompt(0, "") != -1) {
                     // printf("Added data from: %s\n", win32FileDialog.selectedFilename);
                     import(&self, win32FileDialog.selectedFilename);
                     strcpy(win32FileDialog.selectedFilename, "null");
-                    // update undo
-                    addUndo(&self);
                 }
                 #endif
                 #ifdef OS_LINUX
@@ -3024,10 +3051,27 @@ void parseRibbonOutput(logicgates *selfp) {
                     // printf("Added data from: %s\n", zenityFileDialog.selectedFilename);
                     import(&self, zenityFileDialog.selectedFilename);
                     strcpy(zenityFileDialog.selectedFilename, "null");
-                    // update undo
-                    addUndo(&self);
                 }
                 #endif
+                // group items
+                // find next available group ID
+                int groupID = 1;
+                for (int i = 1; i < self.groups -> length; i++) {
+                    if (self.groups -> data[i].i >= groupID) {
+                        groupID = self.groups -> data[i].i + 1;
+                    }
+                }
+                // put all new items in that group
+                for (int i = oldCompLen; i < self.components -> length; i++) {
+                    self.groups -> data[i].i = groupID;
+                }
+                if (oldCompLen == 1) {
+                    self.saved = 1;
+                } else {
+                    self.saved = 0;
+                }
+                // update undo
+                addUndo(&self);
             }
         }
         if (ribbonRender.output[1] == 2) { // view
@@ -3080,6 +3124,16 @@ void parsePopupOutput(logicgates *selfp) {
         }
     }
     *selfp = self;
+}
+// render tabs right of ribbon
+void renderTabs(logicgates *selfp) {
+    turtlePenColor(230, 230, 230);
+    turtlePenSize(5);
+    turtleGoto(230, 175);
+    if (selfp -> saved == 0) {
+        turtlePenDown();
+        turtlePenUp();
+    }
 }
 // used to be in main loop but
 void utilLoop(logicgates *selfp) {
@@ -3205,6 +3259,7 @@ int main(int argc, char *argv[]) {
     }
     // update undo
     addUndo(&self);
+    self.saved = 1;
     MAINLOOP: ; // spooky label
     int frame = 0;
     while (turtle.close == 0) {
@@ -3234,6 +3289,7 @@ int main(int argc, char *argv[]) {
             BUFFER(&self, self.mx, self.my, self.globalsize, self.holdingAng);
         ribbonUpdate(); // do ribbon before mouseTick
         parseRibbonOutput(&self);
+        renderTabs(&self);
         mouseTick(&self);
         hotkeyTick(&self);
         scrollTick(&self);
@@ -3247,27 +3303,30 @@ int main(int argc, char *argv[]) {
             end = clock();
         }
     }
-    self.gotoMainLoop = 0;
-    frame = 0;
-    while (turtle.shouldClose == 0) {
-        start = clock();
-        if (frame > -1) {
-            // turtle.shouldClose = 1;
-        }
-        utilLoop(&self); // setup
-        renderComp(&self);
-        renderWire(&self, self.globalsize);
-        renderSidebar(&self, self.sidebar);
-        ribbonUpdate();
-        popupUpdate();
-        parsePopupOutput(&self);
-        turtleUpdate();
-        frame += 1;
-        if (self.gotoMainLoop) {
-            goto MAINLOOP; // spooky goto statement
-        }
-        while ((double) (end - start) / CLOCKS_PER_SEC < (1 / (double) tps)) {
-            end = clock();
+    if (self.saved == 0) { // if there are unsaved changes
+        self.gotoMainLoop = 0;
+        frame = 0;
+        while (turtle.shouldClose == 0) {
+            start = clock();
+            if (frame > -1) {
+                // turtle.shouldClose = 1;
+            }
+            utilLoop(&self); // setup
+            renderComp(&self);
+            renderWire(&self, self.globalsize);
+            renderSidebar(&self, self.sidebar);
+            ribbonUpdate();
+            renderTabs(&self);
+            popupUpdate();
+            parsePopupOutput(&self);
+            turtleUpdate();
+            frame += 1;
+            if (self.gotoMainLoop) {
+                goto MAINLOOP; // spooky goto statement
+            }
+            while ((double) (end - start) / CLOCKS_PER_SEC < (1 / (double) tps)) {
+                end = clock();
+            }
         }
     }
 }
