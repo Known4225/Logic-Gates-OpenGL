@@ -63,6 +63,7 @@ typedef struct list_f list_t;
 
 typedef union { // supported types
     int i;
+    unsigned int u;
     float f;
     double d;
     char c;
@@ -95,6 +96,9 @@ void* list_item(list_t *list, int index) { // accesses an item of the list as a 
     switch (list -> type[index]) {
         case 'i':
             ret = &list -> data[index].i;
+        break;
+        case 'u':
+            ret = &list -> data[index].u;
         break;
         case 'f':
             ret = &list -> data[index].f;
@@ -246,6 +250,9 @@ int unitype_check_equal (unitype item1, unitype item2, char typeItem1, char type
         case 'i':
             if (item1.i == item2.i) {return 1;}
         break;
+        case 'u':
+            if (item1.i == item2.i) {return 1;}
+        break;
         case 'f':
             if (item1.f == item2.f) {return 1;}
         break;
@@ -324,6 +331,9 @@ void unitype_print(unitype item, char type) { // prints a unitype item
     switch (type) {
         case 'i':
             printf("%d", item.i);
+        break;
+        case 'u':
+            printf("%i", item.i);
         break;
         case 'f':
             printf("%f", item.f);
