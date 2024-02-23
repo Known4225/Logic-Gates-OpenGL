@@ -207,7 +207,7 @@ int win32FileDialogPrompt(char openOrSave, char *filename) { // 0 - open, 1 - sa
             /* load file restrictions */
             if (win32FileDialog.numExtensions > 0) {
                 COMDLG_FILTERSPEC fileExtensions[1]; // just one filter
-                unsigned short buildFilter[10];
+                unsigned short buildFilter[10 * win32FileDialog.numExtensions];
                 int j = 0;
                 for (int i = 0; i < win32FileDialog.numExtensions; i++) {
                     buildFilter[j] = (unsigned short) '*';
