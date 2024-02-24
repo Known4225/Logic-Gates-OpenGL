@@ -204,10 +204,14 @@ int win32FileDialogPrompt(char openOrSave, char *filename) { // 0 - open, 1 - sa
                 fileDialog -> lpVtbl -> SetFileName(fileDialog, prename);
             }
 
-            /* load file restrictions */
+            /* load file restrictions
+            Info: each COMDLG creates one more entry to the dropdown to the right of the text box in the file dialog window
+            You can only see files that are specified in the types on the current COMDLG_FILTERSPEC selected in the dropdown
+            Thats why I shove all the types into one COMDLG_FILTERSPEC, because I want the user to be able to see all compatible files at once
+             */
             if (win32FileDialog.numExtensions > 0) {
-                COMDLG_FILTERSPEC fileExtensions[1]; // just one filter
-                unsigned short buildFilter[10 * win32FileDialog.numExtensions];
+                COMDLG_FILTERSPEC *fileExtensions = malloc(sizeof(COMDLG_FILTERSPEC)); // just one filter
+                WCHAR *buildFilter = malloc(10 * win32FileDialog.numExtensions * sizeof(WCHAR));
                 int j = 0;
                 for (int i = 0; i < win32FileDialog.numExtensions; i++) {
                     buildFilter[j] = (unsigned short) '*';
@@ -221,18 +225,17 @@ int win32FileDialogPrompt(char openOrSave, char *filename) { // 0 - open, 1 - sa
                     j += 1;
                 }
                 buildFilter[j] = (unsigned short) '\0';
-                COMDLG_FILTERSPEC build;
-                build.pszName = L"Specified Types";
-                build.pszSpec = (LPCWSTR) buildFilter;
-                fileExtensions[0] = build;
-                fileDialog -> lpVtbl -> SetFileTypes(fileDialog, win32FileDialog.numExtensions, fileExtensions);
+                (*fileExtensions).pszName = L"Specified Types";
+                (*fileExtensions).pszSpec = buildFilter;
+                fileDialog -> lpVtbl -> SetFileTypes(fileDialog, 1, fileExtensions);
+                free(buildFilter);
+                free(fileExtensions);
             }
 
             /* configure title and button text */
             if (openOrSave == 0) { // open
                 fileDialog -> lpVtbl -> SetOkButtonLabel(fileDialog, L"Open");
                 fileDialog -> lpVtbl -> SetTitle(fileDialog, L"Open");
-                
             } else { // save
                 fileDialog -> lpVtbl -> SetOkButtonLabel(fileDialog, L"Save");
                 fileDialog -> lpVtbl -> SetTitle(fileDialog, L"Save");
