@@ -1,0 +1,16 @@
+Specs:
+Four 8 bit registers
+Sixteen bytes of addressable memory
+Program counter - 8 bit incrementor
+
+Instruction Protocol:
+00 10 11 01
+
+We have operation, register1, register2, register3
+reg1 and reg2 are inputs, reg3 is the output
+
+Operations:
+00 - ADD (inp1, inp2, out)
+01 - SUBTRACT (inp1, inp2, out)
+10 - SAVE/LOAD (address, reg, 00 - save, 01 - load)
+11 - free
