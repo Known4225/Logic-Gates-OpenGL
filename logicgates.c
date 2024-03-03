@@ -1,6 +1,6 @@
 /* select OS */
 // #define OS_WINDOWS
-#define OS_LINUX
+// #define OS_LINUX
 
 #include "include/ribbon.h"
 #include "include/popup.h"

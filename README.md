@@ -1,14 +1,14 @@
 # Logic Gates
 
 ### Compile (windows 64 bit):
-gcc logicgatesWindows.c -L./Windows -lglfw3 -lopengl32 -lgdi32 -lglad -lole32 -luuid -O3 -o logicgatesWindows.exe\
-Then run logicgatesWindows.exe\
-I've also included the 64-bit binary (logicgatesWindows.exe) for convenience,\
-so you can just run that without compilation if you're on windows (and a 64 bit machine)
+gcc logicgates.c -L./Windows -lglfw3 -lopengl32 -lgdi32 -lglad -lole32 -luuid -DOS_WINDOWS -o logicgates.exe\
+Then run logicgates.exe\
+I've also included the 64-bit binary (logicgates.exe) for convenience,\
+so you can just run that without compilation if you're on windows (and on a 64 bit machine)
 
 ### Compile (linux):
-gcc logicgatesLinux.c -L./Linux -lglfw3 -ldl -lm -lX11 -lglad -lGL -lGLU -lpthread -O3 -o logicgatesLinux.o\
-Then run ./logicgatesLinux.o
+gcc logicgates.c -L./Linux -lglfw3 -ldl -lm -lX11 -lglad -lGL -lGLU -lpthread -DOS_LINUX -o logicgates.o\
+Then run ./logicgates.o
 
 To load a file, type:\
 logicgates.exe {filename.txt}\
