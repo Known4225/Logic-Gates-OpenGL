@@ -23,9 +23,11 @@ Example sequence:
 10 001 1 01 - load address 1 into reg1
 00 00 00 11 - add reg0 and reg0 - save in reg3
 00 00 01 11 - add reg0 and reg1 - save in reg3
+00 01 01 11 - add reg1 amd reg1 - save in reg3
 10 010 0 11 - save reg3 to address 2
 
 
 Current problems:
 I'm resetting all of my registers every clock cycle. That should only happen if they change. Actually that probably shouldn't happen at all.
  - Could fix it with another round of latches that... wait... no it cant.
+ - I should hold the output in the output bus until the last subtick and push it to the latches
