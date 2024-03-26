@@ -11,6 +11,21 @@ reg1 and reg2 are inputs, reg3 is the output
 
 Operations:
 00 - ADD (inp1, inp2, out)
-01 - SUBTRACT (inp1, inp2, out)
-10 - SAVE/LOAD (address, reg, 00 - save, 01 - load)
-11 - free
+01 - SHIFT (inp1, 00, 00 - shl, 01 - shr)
+01 - BEV (inp1, 01, inp2) - branch if even, branches to value of inp2 if inp1 is even
+01 - JMP (inp1, 10, free) - jump to inp1
+10 - SAVE/LOAD (address (3 bits), 0 - save, 1 - load, reg)
+11 - BEQ (inp1, inp2, inp3) - inp2 and inp3 are compared, we set the program counter to inp1 if they are equal
+
+
+Example sequence:
+10 000 1 00 - load address 0 into reg0
+10 001 1 01 - load address 1 into reg1
+00 00 00 11 - add reg0 and reg0 - save in reg3
+00 00 01 11 - add reg0 and reg1 - save in reg3
+10 010 0 11 - save reg3 to address 2
+
+
+Current problems:
+I'm resetting all of my registers every clock cycle. That should only happen if they change. Actually that probably shouldn't happen at all.
+ - Could fix it with another round of latches that... wait... no it cant.
