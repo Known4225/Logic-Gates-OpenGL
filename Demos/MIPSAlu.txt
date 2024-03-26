@@ -1,0 +1,43 @@
+The MIPSAlu.lg file is a 32-bit ALU that implements the following functions:
+ - Addition
+ - Subtraction
+ - AND
+ - OR
+ - NOR
+ - Comparison
+
+It's based off of the following Verilog code:
+/* 
+From page B-37, MIPS ALU figure B.5.15
+of Computer Organization and Design, D. Patterson and J. Hennessy, 5th Ed.
+*/
+
+module MIPSALU (ALUct1, A, B, ALUOut, Zero);
+    input [3:0] ALUct1;
+    input [31:0] A,B;
+    output reg [31:0] ALUOut;
+    output Zero;
+
+    assign Zero = (ALUOut == 0); // Zero is true if ALUOut is 0
+    always @(ALUct1, A, B) begin // reevaluate if these change
+        case (ALUct1)
+            0: ALUOut <= A & B;
+            1: ALUOut <= A | B;
+            2: ALUOut <= A + B;
+            6: ALUOut <= A - B;
+            7: ALUOut <= A < B ? 1 : 0;
+            12: ALUOut <= ~(A | B); // result is NOR
+            default: ALUOut <= 0;
+        endcase
+    end
+endmodule
+
+The left 32-bit register is A, the right is B, and the rightmost 4-bit register is ALUct1.
+ALUOut is the 32-bit register at the bottom, and the Zero flag is the single bit below it.
+Opcode -> operation
+0b0000 -> AND
+0b0001 -> OR
+0b0010 -> ADD
+0b0110 -> SUB
+0b0111 -> CMP
+0b1100 -> NOR
