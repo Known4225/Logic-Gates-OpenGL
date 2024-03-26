@@ -21,8 +21,8 @@ keybind shortcuts to make building circuits faster.
 
 ## Keybinds:
 click and drag - Place components, move components, or move screen\
-scroll wheel - zoom\
 click on a POWER component to toggle it on/off\
+scroll wheel - zoom\
 space + click + drag - create wire\
 1, e, p - POWER component (input/output)\
 2, n - NOT gate\
