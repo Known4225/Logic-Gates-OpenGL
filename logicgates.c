@@ -26,6 +26,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     char mouseType; // mouseType?
     char wireMode; // there are three wireModes, 0 is classic, 1 is angular (new style), and 2 is no wire render
     double scrollSpeed; // how fast the scroll zooms in, I think it's a 1.15x
+    double arrowScrollSpeed; // how fast the arrow keys zoom, 1.001x
     double rotateSpeed; // how fast the arrow keys rotate components
     int rotateCooldown; // what?
     double mx; // mouseX bounded by window
@@ -125,6 +126,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
         popupDarkTheme();
     turtleBgColor(self.themeColors[25 + self.theme], self.themeColors[26 + self.theme], self.themeColors[27 + self.theme]);
     self.scrollSpeed = 1.15;
+    self.arrowScrollSpeed = 1.001;
     self.rotateSpeed = 1;
     self.rotateCooldown = 1;
     self.mx = 0;
@@ -2899,9 +2901,16 @@ void scrollTick(logicgates *selfp) {
                 self.rotateCooldown = 0;
             }
         } else {
-            self.screenX -= (turtle.mouseX * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
-            self.screenY -= (turtle.mouseY * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
-            self.globalsize *= self.scrollSpeed;
+            if (self.keys[3]) {
+                // reduce scroll amount if it was done by arrow
+                self.screenX -= (turtle.mouseX * (-1 / self.arrowScrollSpeed + 1)) / (self.globalsize * 0.75);
+                self.screenY -= (turtle.mouseY * (-1 / self.arrowScrollSpeed + 1)) / (self.globalsize * 0.75);
+                self.globalsize *= self.arrowScrollSpeed;
+            } else {
+                self.screenX -= (turtle.mouseX * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
+                self.screenY -= (turtle.mouseY * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
+                self.globalsize *= self.scrollSpeed;
+            }
         }
     }
     if (self.mw < 0) {
@@ -2927,9 +2936,16 @@ void scrollTick(logicgates *selfp) {
                 self.rotateCooldown = 0;
             }
         } else {
-            self.globalsize /= self.scrollSpeed;
-            self.screenX += (turtle.mouseX * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
-            self.screenY += (turtle.mouseY * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
+            if (self.keys[4]) {
+                // reduce scroll amount if it was done by arrow
+                self.globalsize /= self.arrowScrollSpeed;
+                self.screenX += (turtle.mouseX * (-1 / self.arrowScrollSpeed + 1)) / (self.globalsize * 0.75);
+                self.screenY += (turtle.mouseY * (-1 / self.arrowScrollSpeed + 1)) / (self.globalsize * 0.75);
+            } else {
+                self.globalsize /= self.scrollSpeed;
+                self.screenX += (turtle.mouseX * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
+                self.screenY += (turtle.mouseY * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
+            }
         }
     }
     if (self.mw == 0) {
@@ -3157,10 +3173,12 @@ void utilLoop(logicgates *selfp) {
         }
     }
     selfp -> mw = turtleMouseWheel();
-    if (selfp -> keys[3])
+    if (turtleKeyPressed(GLFW_KEY_UP)) {
         selfp -> mw += 1;
-    if (selfp -> keys[4])
+    }
+    if (turtleKeyPressed(GLFW_KEY_DOWN)) {
         selfp -> mw -= 1;
+    }
     turtleClear();
 }
 

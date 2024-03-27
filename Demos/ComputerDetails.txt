@@ -13,7 +13,8 @@ Operations:
 00 - ADD (inp1, inp2, out)
 01 - SHIFT (inp1, 00, 00 - shl, 01 - shr)
 01 - BEV (inp1, 01, inp2) - branch if even, branches to value of inp2 if inp1 is even
-01 - JMP (inp1, 10, free) - jump to inp1
+01 - JMP (inp1, 10, 00) - jump to inp1
+01 - JMP (00, 10, 01) - jump to 0
 10 - SAVE/LOAD (address (3 bits), 0 - save, 1 - load, reg)
 11 - BEQ (inp1, inp2, inp3) - inp2 and inp3 are compared, we set the program counter to inp1 if they are equal
 
@@ -30,7 +31,9 @@ Prgm1
 10 000 1 00 - load address 0 into reg0
 10 001 1 01 - load address 1 into reg1
 00 00 01 11 - add reg0 and reg1 - save in reg3
-10 010 0 11 - save reg3 to address 2
+10 111 0 11 - save reg3 to address 7
+10 001 0 11 - save reg3 to address 1
+01 00 10 01 - jump to start
 
 
 Current problems:
