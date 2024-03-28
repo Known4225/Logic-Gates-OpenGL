@@ -25,6 +25,9 @@ typedef struct { // all logicgates variables (shared state) are defined here
     char indicators; // idk
     char mouseType; // mouseType?
     char wireMode; // there are three wireModes, 0 is classic, 1 is angular (new style), and 2 is no wire render
+    char debugMode; // debug mode is 1 when the editor is in debug step mode. In this mode, CTRL + Space steps a single tick and CTRL + Scroll will also step (allowing for many steps to be done quickly)
+    char debugTick;
+    char flashTicks; // when turning on debug mode, there's a white flash over the screen
     double scrollSpeed; // how fast the scroll zooms in, I think it's a 1.15x
     double arrowScrollSpeed; // how fast the arrow keys zoom, 1.001x
     double rotateSpeed; // how fast the arrow keys rotate components
@@ -86,7 +89,9 @@ typedef struct { // all logicgates variables (shared state) are defined here
     list_t *selectOb; // list of selected component IDs (but transferred to selected a tick later?)
     list_t *copyBuffer; // for ctrl+c and ctrl+v
     list_t *undoBuffer; // list of lists containing the state of the program after every undoable action
+    list_t *debugUndoBuffer; // like the undoBuffer but specifically updated for every tick advanced in debug mode so you can roll back time
     int undoIndex; // what position in the undoBuffer are we at
+    int debugUndoIndex;
     double sinRot;
     double cosRot;
     char defaultShape; // having to do with the penshape
@@ -95,6 +100,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
 } logicgates;
 void init(logicgates *selfp) { // initialises the logicgates variabes (shared state)
     logicgates self = *selfp;
+    self.debugMode = 0;
     self.globalsize = 1.5;
     double themes[55] = {0,
     /* light theme */ 
@@ -125,6 +131,8 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
         ribbonDarkTheme();
         popupDarkTheme();
     turtleBgColor(self.themeColors[25 + self.theme], self.themeColors[26 + self.theme], self.themeColors[27 + self.theme]);
+    self.flashTicks = 0;
+    self.debugTick = 0;
     self.scrollSpeed = 1.15;
     self.arrowScrollSpeed = 1.001;
     self.rotateSpeed = 1;
@@ -220,7 +228,10 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     }
     self.undoBuffer = list_init();
     list_append(self.undoBuffer, (unitype) 'n', 'c');
+    self.debugUndoBuffer = list_init();
+    list_append(self.debugUndoBuffer, (unitype) 'n', 'c');
     self.undoIndex = 0;
+    self.debugUndoIndex = 0;
     self.sinRot = 0;
     self.cosRot = 0;
     self.defaultShape = 0; // 0 for circle (pretty), 3 for none (fastest), basically 0 is prettiest 3 is fastest, everything between is a spectrum
@@ -1238,7 +1249,41 @@ void addUndo(logicgates *selfp) {
     }
     *selfp = self;
 }
-void transferUndoBuffer(logicgates *selfp) { // transfers undoBuffer data to the working lists
+// made a separate one for debugUndo
+void addDebugUndo(logicgates *selfp) {
+    logicgates self = *selfp;
+    self.debugUndoIndex++;
+    while (self.debugUndoBuffer -> length > self.debugUndoIndex) {
+        list_delete(self.debugUndoBuffer, self.debugUndoBuffer -> length - 1);
+    }
+    if (self.debugUndoBuffer -> length == self.debugUndoIndex) {
+        // printf("this is good\n");
+    }
+    list_append(self.debugUndoBuffer, (unitype) list_init(), 'r');
+    list_append(self.debugUndoBuffer -> data[self.debugUndoIndex].r, (unitype) (int) self.components -> length, 'i');
+    // packs data
+    for (int i = 1; i < self.components -> length; i++) {
+        list_append(self.debugUndoBuffer -> data[self.debugUndoIndex].r, self.components -> data[i], 's');
+    }
+    for (int i = 1; i < self.groups -> length; i++) {
+        list_append(self.debugUndoBuffer -> data[self.debugUndoIndex].r, self.groups -> data[i], 'i');
+    }
+    for (int i = 1; i < self.positions -> length; i++) {
+        list_append(self.debugUndoBuffer -> data[self.debugUndoIndex].r, self.positions -> data[i], 'd');
+    }
+    for (int i = 1; i < self.io -> length; i++) {
+        list_append(self.debugUndoBuffer -> data[self.debugUndoIndex].r, self.io -> data[i], 'i');
+    }
+    for (int i = 1; i < self.inpComp -> length; i++) {
+        list_append(self.debugUndoBuffer -> data[self.debugUndoIndex].r, self.inpComp -> data[i], 'i');
+    }
+    for (int i = 1; i < self.wiring -> length; i++) {
+        list_append(self.debugUndoBuffer -> data[self.debugUndoIndex].r, self.wiring -> data[i], 'i');
+    }
+    *selfp = self;
+}
+void transferUndoBuffer(logicgates *selfp, char debug) { // transfers undoBuffer data to the working lists
+    // debug indicates whether we pull from the debug list or the normal undo list
     logicgates self = *selfp;
     // no selecting when undoing
     self.wireHold = 0; // this literally does nothing. Like it doesn't even set wireHold to 0 i dont know why
@@ -1248,56 +1293,66 @@ void transferUndoBuffer(logicgates *selfp) { // transfers undoBuffer data to the
     list_clear(self.selected);
     list_append(self.selected, (unitype) "null", 's');
 
-    int numComp = self.undoBuffer -> data[self.undoIndex].r -> data[0].i;
+    list_t *transferBuffer;
+    int transferIndex = 0;
+    if (debug) {
+        transferBuffer = self.debugUndoBuffer;
+        transferIndex = self.debugUndoIndex;
+    } else {
+        transferBuffer = self.undoBuffer;
+        transferIndex = self.undoIndex;
+    }
+
+    int numComp = transferBuffer -> data[transferIndex].r -> data[0].i;
     int globIndex = 1;
     // components
     list_clear(self.components);
     list_append(self.components, (unitype) "null", 's');
     for (int i = 1; i < numComp; i++) {
-        list_append(self.components, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex], 's');
+        list_append(self.components, transferBuffer -> data[transferIndex].r -> data[globIndex], 's');
         globIndex++;
     }
     // groups
     list_clear(self.groups);
     list_append(self.groups, (unitype) 'n', 'c');
     for (int i = 1; i < numComp; i++) {
-        list_append(self.groups, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex], 'i');
+        list_append(self.groups, transferBuffer -> data[transferIndex].r -> data[globIndex], 'i');
         globIndex++;
     }
     // positions
     list_clear(self.positions);
     list_append(self.positions, (unitype) 'n', 'c');
     for (int i = 1; i < numComp; i++) {
-        list_append(self.positions, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex], 'd');
-        list_append(self.positions, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 1], 'd');
-        list_append(self.positions, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 2], 'd');
+        list_append(self.positions, transferBuffer -> data[transferIndex].r -> data[globIndex], 'd');
+        list_append(self.positions, transferBuffer -> data[transferIndex].r -> data[globIndex + 1], 'd');
+        list_append(self.positions, transferBuffer -> data[transferIndex].r -> data[globIndex + 2], 'd');
         globIndex += 3;
     }
     // io
     list_clear(self.io);
     list_append(self.io, (unitype) 'n', 'c');
     for (int i = 1; i < numComp; i++) {
-        list_append(self.io, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex], 'i');
-        list_append(self.io, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 1], 'i');
-        list_append(self.io, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 2], 'i');
+        list_append(self.io, transferBuffer -> data[transferIndex].r -> data[globIndex], 'i');
+        list_append(self.io, transferBuffer -> data[transferIndex].r -> data[globIndex + 1], 'i');
+        list_append(self.io, transferBuffer -> data[transferIndex].r -> data[globIndex + 2], 'i');
         globIndex += 3;
     }
     // inpComp
     list_clear(self.inpComp);
     list_append(self.inpComp, (unitype) 'n', 'c');
     for (int i = 1; i < numComp; i++) {
-        list_append(self.inpComp, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex], 'i');
-        list_append(self.inpComp, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 1], 'i');
-        list_append(self.inpComp, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 2], 'i');
+        list_append(self.inpComp, transferBuffer -> data[transferIndex].r -> data[globIndex], 'i');
+        list_append(self.inpComp, transferBuffer -> data[transferIndex].r -> data[globIndex + 1], 'i');
+        list_append(self.inpComp, transferBuffer -> data[transferIndex].r -> data[globIndex + 2], 'i');
         globIndex += 3;
     }
     // wiring
     list_clear(self.wiring);
     list_append(self.wiring, (unitype) 'n', 'c');
-    while (globIndex < self.undoBuffer -> data[self.undoIndex].r -> length) {
-        list_append(self.wiring, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex], 'i');
-        list_append(self.wiring, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 1], 'i');
-        list_append(self.wiring, self.undoBuffer -> data[self.undoIndex].r -> data[globIndex + 2], 'i');
+    while (globIndex < transferBuffer -> data[transferIndex].r -> length) {
+        list_append(self.wiring, transferBuffer -> data[transferIndex].r -> data[globIndex], 'i');
+        list_append(self.wiring, transferBuffer -> data[transferIndex].r -> data[globIndex + 1], 'i');
+        list_append(self.wiring, transferBuffer -> data[transferIndex].r -> data[globIndex + 2], 'i');
         globIndex += 3;
     }
 }
@@ -1305,13 +1360,19 @@ void undo(logicgates *selfp) { // undo
     if (selfp -> undoIndex > 1) {
         selfp -> undoIndex--;
     }
-    transferUndoBuffer(selfp);
+    transferUndoBuffer(selfp, 0);
 }
-void redo(logicgates *selfp) {
+void redo(logicgates *selfp) { // redo
     if (selfp -> undoIndex + 1 < selfp -> undoBuffer -> length) {
         selfp -> undoIndex++;
     }
-    transferUndoBuffer(selfp);
+    transferUndoBuffer(selfp, 0);
+}
+void debugUndo(logicgates *selfp) { // undo debug tick
+    if (selfp -> debugUndoIndex > 1) {
+        selfp -> debugUndoIndex--;
+    }
+    transferUndoBuffer(selfp, 1);
 }
 double dmod(double input, double modulus) { // fmod that always returns a positive number
     double out = fmod(input, modulus);
@@ -1820,6 +1881,11 @@ void wireIO(logicgates *selfp, int index1, int index2) { // this script actually
         self.io -> data[self.wiring -> data[index1 + 1].i * 3 - 2] = self.io -> data[self.wiring -> data[index1].i * 3];
     else
         self.io -> data[self.wiring -> data[index1 + 1].i * 3 - 1] = self.io -> data[self.wiring -> data[index1].i * 3];
+    
+    
+}
+void wireAngle(logicgates *selfp, int index1, int index2) {
+    logicgates self = *selfp;
     if (self.compSlots -> data[list_find(self.compSlots, self.components -> data[self.wiring -> data[index2].i], 's') + 1].i == 2) {
         if (self.inpComp -> data[self.wiring -> data[index2].i * 3].i == 0) {
             self.wxOffE = 0;
@@ -1916,12 +1982,18 @@ void renderComp(logicgates *selfp) { // this function renders all the components
     *selfp = self;
 }
 void renderWire(logicgates *selfp, double size) { // this function renders all the wiring in the window (a bit buggy if the components are outside the window, it doesn't do line intercepts and is likely bounded by total screen size but if I were to do bound intercepts I would do it in the turtle abstration)
+    if (selfp -> debugMode == 1 && selfp -> debugTick == 1) {
+        addDebugUndo(selfp); // update undo buffer
+    }
     logicgates self = *selfp;
     self.globalsize *= 0.75; // um just resizing no big deal
     turtlePenSize(size * self.scaling);
     int len = self.wiring -> length - 1;
     for (int i = 1; i < len; i += 3) {
-        wireIO(&self, i, i + 1); // it was, in hindsight, a bad idea to do logic in the render function, but i guess it's fine
+        if (self.debugMode == 0 || self.debugTick == 1) {
+            wireIO(&self, i, i + 1); // it was, in hindsight, a bad idea to do logic in the render function, but i guess it's fine
+        }
+        wireAngle(&self, i, i + 1);
         if (self.wireMode != 2) {
             double wireTXS = (self.positions -> data[self.wiring -> data[i].i * 3 - 2].d + self.screenX) * self.globalsize;
             double wireTYS = (self.positions -> data[self.wiring -> data[i].i * 3 - 1].d + self.screenY) * self.globalsize;
@@ -1956,6 +2028,7 @@ void renderWire(logicgates *selfp, double size) { // this function renders all t
             turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
         }
     }
+    self.debugTick = 0;
     self.globalsize /= 0.75;
     *selfp = self;
 }
@@ -2483,7 +2556,12 @@ void mouseTick(logicgates *selfp) {
 void hotkeyTick(logicgates *selfp) {
     logicgates self = *selfp;
     if (turtleKeyPressed(GLFW_KEY_SPACE)) { // space
-        self.keys[1] = 1;
+        if (!self.keys[1]) {
+            self.keys[1] = 1;
+            if (turtleKeyPressed(GLFW_KEY_LEFT_CONTROL)) {
+                self.debugTick = 1; // tick debug (step forward)
+            }
+        }
     } else {
         self.keys[1] = 0;
     }
@@ -2864,15 +2942,39 @@ void hotkeyTick(logicgates *selfp) {
         }
         self.keys[26] = 1;
     } else {
-        self.keys[26] = 0;
+        if (self.keys[26]) {
+            self.keys[26] = 0;
+        }
     }
     if (turtleKeyPressed(GLFW_KEY_ESCAPE)) {
+        // stop holding
         if (!self.keys[27]) {
             self.holding = "a";
         }
         self.keys[27] = 1;
     } else {
-        self.keys[27] = 0;
+        if (self.keys[27]) {
+            self.keys[27] = 0;
+        }
+    }
+    if (turtleKeyPressed(GLFW_KEY_D)) {
+        // enter debug mode
+        if (!self.keys[28]) {
+            if (self.debugMode) {
+                self.debugMode = 0;
+            } else {
+                self.debugMode = 1;
+            }
+            self.debugUndoIndex = 0;
+            list_clear(self.debugUndoBuffer);
+            list_append(self.debugUndoBuffer, (unitype) 'n', 'c');
+            self.flashTicks = 10;
+            self.keys[28] = 1;
+        }
+    } else {
+        if (self.keys[28]) {
+            self.keys[28] = 0;
+        }
     }
     *selfp = self;
 }
@@ -2880,72 +2982,81 @@ void hotkeyTick(logicgates *selfp) {
 void scrollTick(logicgates *selfp) {
     logicgates self = *selfp;
     if (self.mw > 0) {
-        if (self.keys[1] || turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
-            if (self.rotateCooldown == 1) {
-                if (self.selecting > 1) {
-                    rotateSelected(&self, 90);
-                    // update undo
-                    addUndo(&self);
-                } else {
-                    if (!(strcmp(self.holding, "a") == 0) && !(strcmp(self.holding, "b") == 0)) {
-                        self.holdingAng -= 90;
+        if (self.debugMode == 1 && turtleKeyPressed(GLFW_KEY_LEFT_CONTROL) && self.keys[3] == 0) {
+            self.debugTick = 1; // step forward
+        } else {
+            if (self.keys[1] || turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
+                if (self.rotateCooldown == 1) {
+                    if (self.selecting > 1) {
+                        rotateSelected(&self, 90);
+                        // update undo
+                        addUndo(&self);
                     } else {
-                        if (!(self.hlgcomp == 0)) {
-                            self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d - 90);
-                            if (self.positions -> data[self.hlgcomp * 3].d < 0)
-                                self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d + 360);
-                            // update undo
-                            addUndo(&self);
+                        if (!(strcmp(self.holding, "a") == 0) && !(strcmp(self.holding, "b") == 0)) {
+                            self.holdingAng -= 90;
+                        } else {
+                            if (!(self.hlgcomp == 0)) {
+                                self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d - 90);
+                                if (self.positions -> data[self.hlgcomp * 3].d < 0)
+                                    self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d + 360);
+                                // update undo
+                                addUndo(&self);
+                            }
                         }
                     }
+                    self.rotateCooldown = 0;
                 }
-                self.rotateCooldown = 0;
-            }
-        } else {
-            if (self.keys[3]) {
-                // reduce scroll amount if it was done by arrow
-                self.screenX -= (turtle.mouseX * (-1 / self.arrowScrollSpeed + 1)) / (self.globalsize * 0.75);
-                self.screenY -= (turtle.mouseY * (-1 / self.arrowScrollSpeed + 1)) / (self.globalsize * 0.75);
-                self.globalsize *= self.arrowScrollSpeed;
             } else {
-                self.screenX -= (turtle.mouseX * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
-                self.screenY -= (turtle.mouseY * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
-                self.globalsize *= self.scrollSpeed;
+                if (self.keys[3]) {
+                    // reduce scroll amount if it was done by arrow
+                    self.screenX -= (turtle.mouseX * (-1 / self.arrowScrollSpeed + 1)) / (self.globalsize * 0.75);
+                    self.screenY -= (turtle.mouseY * (-1 / self.arrowScrollSpeed + 1)) / (self.globalsize * 0.75);
+                    self.globalsize *= self.arrowScrollSpeed;
+                } else {
+                    self.screenX -= (turtle.mouseX * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
+                    self.screenY -= (turtle.mouseY * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
+                    self.globalsize *= self.scrollSpeed;
+                }
             }
         }
     }
     if (self.mw < 0) {
-        if (self.keys[1] || turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
-            if (self.rotateCooldown == 1) {
-                if (self.selecting > 1) {
-                    rotateSelected(&self, -90);
-                    // update undo
-                    addUndo(&self);
-                } else {
-                    if (!(strcmp(self.holding, "a") == 0) && !(strcmp(self.holding, "b") == 0)) {
-                        self.holdingAng += 90;
+        if (self.debugMode == 1 && turtleKeyPressed(GLFW_KEY_LEFT_CONTROL) && self.keys[3] == 0) {
+            self.debugTick = -1; // rollback (difficult)
+            debugUndo(&self);
+        } else {
+            if (self.keys[1] || turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
+                if (self.rotateCooldown == 1) {
+                    if (self.selecting > 1) {
+                        rotateSelected(&self, -90);
+                        // update undo
+                        addUndo(&self);
                     } else {
-                        if (!(self.hlgcomp == 0)) {
-                            self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d + 90);
-                            if (self.positions -> data[self.hlgcomp * 3].d > 360)
-                                self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d - 360);
-                            // update undo
-                            addUndo(&self);
+                        if (!(strcmp(self.holding, "a") == 0) && !(strcmp(self.holding, "b") == 0)) {
+                            self.holdingAng += 90;
+                        } else {
+                            if (!(self.hlgcomp == 0)) {
+                                self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d + 90);
+                                if (self.positions -> data[self.hlgcomp * 3].d > 360)
+                                    self.positions -> data[self.hlgcomp * 3] = (unitype) (self.positions -> data[self.hlgcomp * 3].d - 360);
+                                // update undo
+                                addUndo(&self);
+                            }
                         }
                     }
+                    self.rotateCooldown = 0;
                 }
-                self.rotateCooldown = 0;
-            }
-        } else {
-            if (self.keys[4]) {
-                // reduce scroll amount if it was done by arrow
-                self.globalsize /= self.arrowScrollSpeed;
-                self.screenX += (turtle.mouseX * (-1 / self.arrowScrollSpeed + 1)) / (self.globalsize * 0.75);
-                self.screenY += (turtle.mouseY * (-1 / self.arrowScrollSpeed + 1)) / (self.globalsize * 0.75);
             } else {
-                self.globalsize /= self.scrollSpeed;
-                self.screenX += (turtle.mouseX * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
-                self.screenY += (turtle.mouseY * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
+                if (self.keys[4]) {
+                    // reduce scroll amount if it was done by arrow
+                    self.globalsize /= self.arrowScrollSpeed;
+                    self.screenX += (turtle.mouseX * (-1 / self.arrowScrollSpeed + 1)) / (self.globalsize * 0.75);
+                    self.screenY += (turtle.mouseY * (-1 / self.arrowScrollSpeed + 1)) / (self.globalsize * 0.75);
+                } else {
+                    self.globalsize /= self.scrollSpeed;
+                    self.screenX += (turtle.mouseX * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
+                    self.screenY += (turtle.mouseY * (-1 / self.scrollSpeed + 1)) / (self.globalsize * 0.75);
+                }
             }
         }
     }
@@ -3144,13 +3255,25 @@ void parsePopupOutput(logicgates *selfp) {
 }
 // render tabs right of ribbon
 void renderTabs(logicgates *selfp) {
-    turtlePenColor(230, 230, 230);
     turtlePenSize(5);
-    turtleGoto(230, 175);
-    turtlePenShape("circle");
     if (selfp -> saved == 0) {
+        turtlePenShape("circle");
+        turtlePenColor(230, 230, 230);
+        turtleGoto(230, 175);
         turtlePenDown();
         turtlePenUp();
+    }
+    
+    if (selfp -> debugMode) {
+        turtlePenShape("square");
+        turtlePenColor(241, 178, 14);
+        turtleGoto(220, 175);
+        turtlePenDown();
+        turtlePenUp();
+    }
+    if (selfp -> flashTicks > 0) {
+        turtleQuad(-240, -180, 240, -180, 240, 180, -240, 180, 255, 255, 255, 255.0 - 255.0 * (selfp -> flashTicks / 20.0));
+        selfp -> flashTicks--;
     }
     turtle.penshape = selfp -> defaultShape;
 }
