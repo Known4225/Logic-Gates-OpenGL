@@ -67,8 +67,8 @@ The order in which you wire components influences the number of ticks it takes f
 Consider three POWER components, wired as such:\
 A -> B -> C\
 If the wire A -> B was created before wire B -> C, then turning A on will turn C on in the next tick.\
-If the wire B -> C was creaetd before wire A -> B, then turning A on will turn C on in the tick after the next.\
-This is bad. There should bot be a difference. But I don't know how to fix it.\
+If the wire B -> C was created before wire A -> B, then turning A on will turn C on in the tick after the next.\
+This is bad. There should not be a difference. But I don't know how to fix it.\
 The obvious solution would be to order wires in memory, such that any wire that has B as an output comes BEFORE any wire that has B as an input.\
 But that will break if you have A -> B and B -> A. Which one should go first? This is an unsolvable problem.\
 But I want consistent behaviour, so I have to think of something to do about this.\
