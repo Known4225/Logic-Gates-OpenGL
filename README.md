@@ -58,6 +58,7 @@ Press d to toggle the debugger on/off - you should see a flash when you do this 
 In the debugger, the following keybinds are available:
 * ctrl + space - step one tick
 * ctrl + scroll - step one tick (forwards or backwards)
+
 Note that the backwards step is a simple undo. Meaning any edits you make while the debugger is running can be rolled back if you scroll back\
 It is not recommended to make lots of edits in debug mode if you are using the backwards step feature. It is intended for precise viewing of tick-by-tick sequences
 
