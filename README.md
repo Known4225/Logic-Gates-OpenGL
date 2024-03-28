@@ -64,7 +64,6 @@ It is not recommended to make lots of edits in debug mode if you are using the b
 
 
 ### Personal Feature Request:
- - Debugger (step through tick by tick)
  - Grid mode
  - Grouped units "summonable" (without having to save and add file)
  - Multiple tabs
