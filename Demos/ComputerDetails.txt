@@ -11,12 +11,12 @@ reg1 and reg2 are inputs, reg3 is the output
 
 Operations:
 00 - ADD (inp1, inp2, out)
-01 - SHIFT (inp1, 00, 00 - shl, 01 - shr)
-01 - BEV (inp1, 01, inp2) - branch if even, branches to value of inp2 if inp1 is even
-01 - JMP (inp1, 10, 00) - jump to inp1
+01 - SHIFT (inp1, 00, 00 - shl, 01 - shr) NOT IMPLEMENTED
+01 - BEV (inp1, 01, inp2) - branch if even, branches to value of (inp2 + 2) if inp1 is even
+01 - JMP (inp1, 10, 00) - jump to inp1 NOT IMPLEMENTED
 01 - JMP (00, 10, 01) - jump to 0
 10 - SAVE/LOAD (address (3 bits), 0 - save, 1 - load, reg)
-11 - BEQ (inp1, inp2, inp3) - inp2 and inp3 are compared, we set the program counter to inp1 if they are equal
+11 - BGR (inp1, inp2, inp3) - inp1 and inp2 are compared, we set the program counter to inp3 if inp1 > inp2 NOT IMPLEMENTED
 
 
 Example sequence:
@@ -29,12 +29,31 @@ Example sequence:
 
 Prgm1
 10 000 1 00 - load address 0 into reg0
-10 001 1 01 - load address 1 into reg1
+10 111 1 01 - load address 7 into reg1
 00 00 01 11 - add reg0 and reg1 - save in reg3
 10 111 0 11 - save reg3 to address 7
-10 001 0 11 - save reg3 to address 1
 01 00 10 01 - jump to start
 
+Collatz - input number in mem7, input 1 into mem4, input 7 into mem5:
+10 111 1 00 - load mem7 into reg0
+10 100 1 11 - load mem4 into reg3 (this should be 1)
+10 101 1 10 - load mem5 into reg2 (this should be 8)
+01 00 01 10 - jump to reg2 if reg0 is even, this will jump to instruction 9 since it jumps to (7 + 2)
+// assume reg0 is odd
+00 00 00 01 - add reg0 and reg0 - save in reg1
+00 00 01 00 - add reg0 and reg1 - save in reg0
+00 00 11 00 - add reg0 and reg3 - save in reg0
+10 111 0 00 - save reg0 to mem7
+01 00 10 01 - jump to start
+// reg0 is even
+01 00 00 01 - shift reg0 right
+10 111 0 00 - save reg0 to mem7
+01 00 10 01 - jump to start
+
+5 -> 16 -> 8 -> 4 -> 2 -> 1 -> 4 -> 2 -> 1
+7 -> 22 -> 11 -> 34 -> 17 -> 52 -> 26 -> 13 -> 40 -> 20 -> 10 -> 5 -> 16 -> 8 -> 4 -> 2 -> 1
+
+Instructions use all program memory as well as four random access memory bytes
 
 Current problems:
 I'm resetting all of my registers every clock cycle. That should only happen if they change. Actually that probably shouldn't happen at all.
