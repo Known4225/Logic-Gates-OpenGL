@@ -1846,6 +1846,7 @@ void wireIO(logicgates *selfp, int index1, int index2) { // this script actually
 }
 void renderComp(logicgates *selfp) { // this function renders all the components in the window
     logicgates self = *selfp;
+    turtle.penshape = self.defaultShape;
     list_clear(self.selectOb);
     list_append(self.selectOb, (unitype) "null", 's');
     list_t *memo = list_init();
@@ -3146,10 +3147,12 @@ void renderTabs(logicgates *selfp) {
     turtlePenColor(230, 230, 230);
     turtlePenSize(5);
     turtleGoto(230, 175);
+    turtlePenShape("circle");
     if (selfp -> saved == 0) {
         turtlePenDown();
         turtlePenUp();
     }
+    turtle.penshape = selfp -> defaultShape;
 }
 // used to be in main loop but
 void utilLoop(logicgates *selfp) {
@@ -3280,6 +3283,7 @@ int main(int argc, char *argv[]) {
     self.saved = 1;
     MAINLOOP: ; // spooky label
     int frame = 0;
+    int lagFrames = 0;
     while (turtle.close == 0) {
         start = clock(); // for frame syncing
         utilLoop(&self); // setup
@@ -3313,6 +3317,13 @@ int main(int argc, char *argv[]) {
         scrollTick(&self);
         turtleUpdate(); // update the screen
         end = clock();
+        if (self.defaultShape == 0 && (double) (end - start) / CLOCKS_PER_SEC > (1 / (double) tps)) {
+            lagFrames++;
+            // printf("lag: %d\n", lagFrames);
+            if (lagFrames > 120) {
+                self.defaultShape = 3; // change defaultShape to none if not able to get 60 fps, dynamically change quality
+            }
+        }
         if (frame % 60 == 0) {
             frame = 0;
         }

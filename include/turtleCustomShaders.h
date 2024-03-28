@@ -15,11 +15,7 @@ keyboard and mouse presses
 #include "glad.h"
 #include "glfw3.h"
 #include "list.h"
-
-extern void glColor4d(double r, double g, double b, double a); // genius tactic to stop compiler warnings
-extern void glBegin(int type);
-extern void glVertex2d(double x, double y);
-extern void glEnd();
+#include "bufferList.h"
 
 typedef struct {
     GLFWwindow* window; // the window
@@ -36,6 +32,7 @@ typedef struct {
     double mouseAbsX;
     double mouseAbsY;
     list_t *penPos; // a list of where to draw
+    bufferList_t *bufferList; // data passed to glBufferData
     double x; // x and y position of the turtle
     double y;
     char pen; // pen status (1 for down, 0 for up)
@@ -52,6 +49,24 @@ typedef struct {
 } turtleglob; // all globals are conSTRUCTed here
 
 turtleglob turtle;
+
+// shader code
+const char *turtleVertexShaderSource =
+    "#version 330 core\n"
+    "layout(location = 0) in vec2 vPosition;\n"
+    "layout(location = 1) in vec4 vColor;\n"
+    "out vec4 shadeColor;\n"
+    "void main() {\n"
+    "   shadeColor = vColor;\n"
+    "   gl_Position = vec4(vPosition, 0.0, 1.0);\n"
+    "}\0";
+const char *turtleFragmentShaderSource = 
+    "#version 330 core\n"
+    "out vec4 color;\n"
+    "in vec4 shadeColor;\n;"
+    "void main() {\n"
+    "   color = vec4(shadeColor);\n"
+    "}\0";
 
 // run this to set the bounds of the window in coordinates
 void turtleSetWorldCoordinates(int minX, int minY, int maxX, int maxY) {
@@ -132,11 +147,62 @@ char turtleMouseMid() {
 }
 // initializes the turtletools module
 void turtleInit(GLFWwindow* window, int minX, int minY, int maxX, int maxY) {
-    gladLoadGL();
+    // gladLoadGL(); // fixed pipeline
     glfwMakeContextCurrent(window); // various glfw things
-    glEnable(GL_ALPHA);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA);
+
+    /* set up shaders */
+    unsigned int VAO;
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+
+    unsigned int VBO;
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *) 0); // position attribute
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *) (2 * sizeof(float))); // color attribute
+
+    int vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &turtleVertexShaderSource, NULL);
+    glCompileShader(vertexShader);
+    char errorMessage[512];
+    int success;
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(vertexShader, 512, NULL, errorMessage);
+        printf("Error compiling vertex shader\n");
+        printf("%s\n", errorMessage);
+    }
+    int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &turtleFragmentShaderSource, NULL);
+    glCompileShader(fragmentShader);
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(fragmentShader, 512, NULL, errorMessage);
+        printf("Error compiling fragment shader\n");
+        printf("%s\n", errorMessage);
+    }
+    int shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if (!success) {
+        glGetShaderInfoLog(shaderProgram, 512, NULL, errorMessage);
+        printf("Error linking shaders\n");
+        printf("%s\n", errorMessage);
+    }
+    
+    glUseProgram(shaderProgram);
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+    glDeleteProgram(shaderProgram);
+
+    // glEnable(GL_ALPHA);
+    // glEnable(GL_BLEND);
+    // glBlendFunc(GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA);
     glClearColor(1.0, 1.0, 1.0, 0.0); // white background by default
     turtle.window = window;
     turtle.close = 0;
@@ -145,6 +211,7 @@ void turtleInit(GLFWwindow* window, int minX, int minY, int maxX, int maxY) {
     turtle.lastscreenbounds[0] = 0;
     turtle.lastscreenbounds[1] = 0;
     turtle.penPos = list_init();
+    turtle.bufferList = bufferList_init();
     turtle.x = 0;
     turtle.y = 0;
     turtle.pensize = 1;
@@ -204,9 +271,8 @@ void turtlePenSize(double size) {
 }
 // clears all the pen drawings
 void turtleClear() {
-    // list_free(turtle.penPos);
-    // turtle.penPos = list_init();
-    turtle.penPos -> length = 0; // could be dangerous
+    list_free(turtle.penPos);
+    turtle.penPos = list_init();
 }
 // pen down
 void turtlePenDown() {
@@ -321,64 +387,113 @@ void turtleGoto(double x, double y) {
 }
 // draws a circle at the specified x and y (coordinates)
 void turtleCircleRender(double x, double y, double rad, double r, double g, double b, double a, double xfact, double yfact, double prez) {
-    char colorChange = 0;
-    if (r != turtle.currentColor[0]) {colorChange = 1;}
-    if (g != turtle.currentColor[1]) {colorChange = 1;}
-    if (b != turtle.currentColor[2]) {colorChange = 1;}
-    if (a != turtle.currentColor[3]) {colorChange = 1;}
-    if (colorChange == 1) {
-        glColor4d(r, g, b, a);
-        turtle.currentColor[0] = r;
-        turtle.currentColor[1] = g;
-        turtle.currentColor[2] = b;
-        turtle.currentColor[3] = a;
+    int p = (int) prez;
+    if (p > 0) {
+        // p--;
+        float originX = x * xfact;
+        float originY = (y + rad) * yfact;
+        bufferList_append(turtle.bufferList, originX);
+        bufferList_append(turtle.bufferList, originY);
+        bufferList_append(turtle.bufferList, r);
+        bufferList_append(turtle.bufferList, g);
+        bufferList_append(turtle.bufferList, b);
+        bufferList_append(turtle.bufferList, a);
+        bufferList_append(turtle.bufferList, (x + rad * sin(2 * 1 * M_PI / prez)) * xfact);
+        bufferList_append(turtle.bufferList, (y + rad * cos(2 * 1 * M_PI / prez)) * yfact);
+        bufferList_append(turtle.bufferList, r);
+        bufferList_append(turtle.bufferList, g);
+        bufferList_append(turtle.bufferList, b);
+        bufferList_append(turtle.bufferList, a);
+        int i = 0;
+        for (; i < p; i++) {
+            bufferList_append(turtle.bufferList, (x + rad * sin(2 * i * M_PI / prez)) * xfact);
+            bufferList_append(turtle.bufferList, (y + rad * cos(2 * i * M_PI / prez)) * yfact);
+            bufferList_append(turtle.bufferList, r);
+            bufferList_append(turtle.bufferList, g);
+            bufferList_append(turtle.bufferList, b);
+            bufferList_append(turtle.bufferList, a);
+            bufferList_append(turtle.bufferList, originX);
+            bufferList_append(turtle.bufferList, originY);
+            bufferList_append(turtle.bufferList, r);
+            bufferList_append(turtle.bufferList, g);
+            bufferList_append(turtle.bufferList, b);
+            bufferList_append(turtle.bufferList, a);
+            bufferList_append(turtle.bufferList, turtle.bufferList -> data[turtle.bufferList -> length - 12]);
+            bufferList_append(turtle.bufferList, turtle.bufferList -> data[turtle.bufferList -> length - 12]);
+            bufferList_append(turtle.bufferList, r);
+            bufferList_append(turtle.bufferList, g);
+            bufferList_append(turtle.bufferList, b);
+            bufferList_append(turtle.bufferList, a);
+        }
+        bufferList_append(turtle.bufferList, (x + rad * sin(2 * i * M_PI / prez)) * xfact);
+        bufferList_append(turtle.bufferList, (y + rad * cos(2 * i * M_PI / prez)) * yfact);
+        bufferList_append(turtle.bufferList, r);
+        bufferList_append(turtle.bufferList, g);
+        bufferList_append(turtle.bufferList, b);
+        bufferList_append(turtle.bufferList, a);
     }
-    glBegin(GL_TRIANGLE_FAN);
-    for (double i = 0; i < prez; i++) {
-        glVertex2d((x + rad * sin(2 * i * M_PI / prez)) * xfact, (y + rad * cos(2 * i * M_PI / prez)) * yfact);
-    }
-    glEnd();
 }
 // draws a square
 void turtleSquareRender(double x1, double y1, double x2, double y2, double r, double g, double b, double a, double xfact, double yfact) {
-    char colorChange = 0;
-    if (r != turtle.currentColor[0]) {colorChange = 1;}
-    if (g != turtle.currentColor[1]) {colorChange = 1;}
-    if (b != turtle.currentColor[2]) {colorChange = 1;}
-    if (a != turtle.currentColor[3]) {colorChange = 1;}
-    if (colorChange == 1) {
-        glColor4d(r, g, b, a);
-        turtle.currentColor[0] = r;
-        turtle.currentColor[1] = g;
-        turtle.currentColor[2] = b;
-        turtle.currentColor[3] = a;
-    }
-    glBegin(GL_TRIANGLE_FAN);
-    glVertex2d(x1 * xfact, y1 * yfact);
-    glVertex2d(x2 * xfact, y1 * yfact);
-    glVertex2d(x2 * xfact, y2 * yfact);
-    glVertex2d(x1 * xfact, y2 * yfact);
-    glEnd();
+    // float square[24] = {x1 * xfact, y1 * yfact, r, g, b, a, x2 * xfact, y1 * yfact, r, g, b, a, x2 * xfact, y2 * yfact, r, g, b, a, x1 * xfact, y2 * yfact, r, g, b, a};
+    bufferList_append(turtle.bufferList, x1 * xfact);
+    bufferList_append(turtle.bufferList, y1 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
+    bufferList_append(turtle.bufferList, x2 * xfact);
+    bufferList_append(turtle.bufferList, y1 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
+    bufferList_append(turtle.bufferList, x2 * xfact);
+    bufferList_append(turtle.bufferList, y2 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
+    bufferList_append(turtle.bufferList, x1 * xfact);
+    bufferList_append(turtle.bufferList, y1 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
+    bufferList_append(turtle.bufferList, x2 * xfact);
+    bufferList_append(turtle.bufferList, y2 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
+    bufferList_append(turtle.bufferList, x1 * xfact);
+    bufferList_append(turtle.bufferList, y2 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
 }
 // draws a triangle
 void turtleTriangleRender(double x1, double y1, double x2, double y2, double x3, double y3, double r, double g, double b, double a, double xfact, double yfact) {
-    char colorChange = 0;
-    if (r != turtle.currentColor[0]) {colorChange = 1;}
-    if (g != turtle.currentColor[1]) {colorChange = 1;}
-    if (b != turtle.currentColor[2]) {colorChange = 1;}
-    if (a != turtle.currentColor[3]) {colorChange = 1;}
-    if (colorChange == 1) {
-        glColor4d(r, g, b, a);
-        turtle.currentColor[0] = r;
-        turtle.currentColor[1] = g;
-        turtle.currentColor[2] = b;
-        turtle.currentColor[3] = a;
-    }
-    glBegin(GL_TRIANGLES);
-    glVertex2d(x1 * xfact, y1 * yfact);
-    glVertex2d(x2 * xfact, y2 * yfact);
-    glVertex2d(x3 * xfact, y3 * yfact);
-    glEnd();
+    // float triangle[18] = {x1 * xfact, y1 * yfact, r, g, b, a, x2 * xfact, y2 * yfact, r, g, b, a, x3 * xfact, y3 * yfact, r, g, b, a};
+    bufferList_append(turtle.bufferList, x1 * xfact);
+    bufferList_append(turtle.bufferList, y1 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
+    bufferList_append(turtle.bufferList, x2 * xfact);
+    bufferList_append(turtle.bufferList, y2 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
+    bufferList_append(turtle.bufferList, x3 * xfact);
+    bufferList_append(turtle.bufferList, y3 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
 }
 // adds a (blit) triangle to the pipeline (for better speed)
 void turtleTriangle(double x1, double y1, double x2, double y2, double x3, double y3, double r, double g, double b, double a) {
@@ -404,24 +519,42 @@ void turtleTriangle(double x1, double y1, double x2, double y2, double x3, doubl
 }
 // draws a quadrilateral
 void turtleQuadRender(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4, double r, double g, double b, double a, double xfact, double yfact) {
-    char colorChange = 0;
-    if (r != turtle.currentColor[0]) {colorChange = 1;}
-    if (g != turtle.currentColor[1]) {colorChange = 1;}
-    if (b != turtle.currentColor[2]) {colorChange = 1;}
-    if (a != turtle.currentColor[3]) {colorChange = 1;}
-    if (colorChange == 1) {
-        glColor4d(r, g, b, a);
-        turtle.currentColor[0] = r;
-        turtle.currentColor[1] = g;
-        turtle.currentColor[2] = b;
-        turtle.currentColor[3] = a;
-    }
-    glBegin(GL_TRIANGLE_FAN);
-    glVertex2d(x1 * xfact, y1 * yfact);
-    glVertex2d(x2 * xfact, y2 * yfact);
-    glVertex2d(x3 * xfact, y3 * yfact);
-    glVertex2d(x4 * xfact, y4 * yfact);
-    glEnd();
+    bufferList_append(turtle.bufferList, x1 * xfact);
+    bufferList_append(turtle.bufferList, y1 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
+    bufferList_append(turtle.bufferList, x2 * xfact);
+    bufferList_append(turtle.bufferList, y2 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
+    bufferList_append(turtle.bufferList, x3 * xfact);
+    bufferList_append(turtle.bufferList, y3 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
+    bufferList_append(turtle.bufferList, x1 * xfact);
+    bufferList_append(turtle.bufferList, y1 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
+    bufferList_append(turtle.bufferList, x3 * xfact);
+    bufferList_append(turtle.bufferList, y3 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
+    bufferList_append(turtle.bufferList, x4 * xfact);
+    bufferList_append(turtle.bufferList, y4 * yfact);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
 }
 // adds a (blit) quad to the pipeline (for better speed)
 void turtleQuad(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4, double r, double g, double b, double a) {
@@ -447,8 +580,7 @@ void turtleQuad(double x1, double y1, double x2, double y2, double x3, double y3
 }
 // draws the turtle's path on the screen
 void turtleUpdate() {
-    // used to have a feature that only redrew the screen if there have been any changes from last frame, but it has been removed.
-    // opted to redraw every frame and not list_copy, an alternative is hashing the penPos list. An interesting idea for sure... for another time
+    turtle.bufferList -> length = 0; // dubious
     int len = turtle.penPos -> length;
     unitype *ren = turtle.penPos -> data;
     char *renType = turtle.penPos -> type;
@@ -459,7 +591,6 @@ void turtleUpdate() {
     double lastSize = -1;
     double lastPrez = -1;
     double precomputedLog = 5;
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     for (int i = 0; i < len; i += 9) {
         if (renType[i] == 'd') {
             switch (ren[i + 7].h) {
@@ -527,6 +658,9 @@ void turtleUpdate() {
             }
         }
     }
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * turtle.bufferList -> length, turtle.bufferList -> data, GL_STATIC_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0, turtle.bufferList -> length);
     glfwSwapBuffers(turtle.window);
     glfwPollEvents();
     if (glfwWindowShouldClose(turtle.window)) {
@@ -549,5 +683,6 @@ void turtleMainLoop() {
 void turtleFree() {
     list_free(turtle.keyPressed);
     list_free(turtle.penPos);
+    bufferList_free(turtle.bufferList);
 }
 #endif

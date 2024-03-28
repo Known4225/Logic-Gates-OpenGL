@@ -56,6 +56,7 @@ shift + x - delete and replace
 
 ### Personal Feature Request:
  - Debugger (step through tick by tick)
+ - Grid mode
  - Grouped units "summonable" (without having to save and add file)
  - Multiple tabs
  - Multiple colours? (customisable?)

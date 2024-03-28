@@ -134,9 +134,9 @@ void* list_item(list_t *list, int index) { // accesses an item of the list as a 
     return ret;
 }
 
-void list_free_lite(list_t*);
-void list_free(list_t*);
-void list_print_emb(list_t*);
+void list_free_lite(list_t *);
+void list_free(list_t *);
+void list_print_emb(list_t *);
 
 void list_append(list_t *list, unitype data, char type) { // append to list, must specify type
     if (list -> realLength  <= list -> length) {
