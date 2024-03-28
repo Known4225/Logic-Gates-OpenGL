@@ -62,6 +62,17 @@ In the debugger, the following keybinds are available:
 Note that the backwards step is a simple undo. Meaning any edits you make while the debugger is running can be rolled back if you scroll back\
 It is not recommended to make lots of edits in debug mode if you are using the backwards step feature. It is intended for precise viewing of tick-by-tick sequences
 
+### Fundemental Problem
+The order in which you wire components influences the number of ticks it takes for power to pass through them.\
+Consider three POWER components, wired as such:\
+A -> B -> C\
+If the wire A -> B was created before wire B -> C, then turning A on will turn C on in the next tick.\
+If the wire B -> C was creaetd before wire A -> B, then turning A on will turn C on in the tick after the next.\
+This is bad. There should bot be a difference. But I don't know how to fix it.\
+The obvious solution would be to order wires in memory, such that any wire that has B as an output comes BEFORE any wire that has B as an input.\
+But that will break if you have A -> B and B -> A. Which one should go first? This is an unsolvable problem.\
+But I want consistent behaviour, so I have to think of something to do about this.\
+
 
 ### Personal Feature Request:
  - Grid mode

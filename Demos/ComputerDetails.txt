@@ -57,6 +57,7 @@ Collatz: input number in mem7, input 1 into mem4, input 7 into mem5:
 Instructions use all program memory as well as four random access memory bytes
 
 Current problems:
+- adding reg0 and regX and setting the result to reg0 requires a round of latches to store the sum. Or get the timings incredibly precise
 I'm resetting all of my registers every clock cycle. That should only happen if they change. Actually that probably shouldn't happen at all.
  - Could fix it with another round of latches that... wait... no it cant.
  - I should hold the output in the output bus until the last subtick and push it to the latches
