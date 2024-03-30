@@ -79,7 +79,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     list_t *groups; // list of group data (1 element per component, integer represents group ID, -1 is no group. IDs start at 1. 0 is not used)
     list_t *positions; // list of component positions (3 items for each component, doubles specifying x, y, and angle)
     list_t *io; // list of binary inputs and outputs of a component (3 items for each component, 2 inputs followed by the output of the component (either a 0 or 1))
-    list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible inputs (either 1 or 2), input 1 (ID, 0 if none), input 2 (ID, 0 if none)
+    list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible inputs (either 1 or 2), input 1 (ID, 0 or less if none), input 2 (ID, 0 if none)
     list_t *wiring; // list of component connections (3 items per connection, it goes sender (ID), reciever (ID), powered (0 or 1))
     
     char keys[32];
@@ -714,7 +714,7 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
     
     // identify input to deleted component
     int inputCon = -1;
-    if (replace && self.inpComp -> data[index * 3].i == 0) { // any component with one input
+    if (replace && self.inpComp -> data[index * 3].i < 1) { // any component with one input
         // identify input (if any)
         for (int j = 1; j < self.wiring -> length; j += 3) {
             if (self.wiring -> data[j + 1].i == index) {
@@ -729,11 +729,11 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
     // gather numInputs and numInputsHolding
     char doDelete = 1;
     int numInputs = self.inpComp -> data[index * 3 - 2].i; // numInputs is how many actual wire inputs are connected to this component
-    if (numInputs == 2 && self.inpComp -> data[index * 3].i == 0) {
+    if (numInputs == 2 && self.inpComp -> data[index * 3].i < 1) {
         // if it can support two but only has one
         numInputs--;
     }
-    if (self.inpComp -> data[index * 3 - 1].i == 0) {
+    if (self.inpComp -> data[index * 3 - 1].i < 1) {
         // this is equivalent to 0 inputs
         numInputs--;
     }
@@ -1384,6 +1384,9 @@ double dmod(double input, double modulus) { // fmod that always returns a positi
 void snapToGrid(logicgates *selfp, double gridsize) { // snaps components to a grid
     // printf("%lf\n", dmod(-1, 5));
     logicgates self = *selfp;
+    if (self.components -> length == 1) {
+        return;
+    }
     double j = 0;
     double k = 0;
     int m1 = self.positions -> length;
@@ -1455,6 +1458,253 @@ void snapToGrid(logicgates *selfp, double gridsize) { // snaps components to a g
     self.screenX += j;
     self.screenY += k;
     *selfp = self;
+}
+// breadth-first sorts connections (to minimise inconsistent timing)
+void orderWiresBreadth(logicgates *selfp) {
+    logicgates self = *selfp;
+    list_t *newWiringList = list_init(); // replace self.wiring with this list when completed
+    list_append(newWiringList, (unitype) 'n', 'c');
+    int len = self.wiring -> length;
+    char *visited = calloc(self.components -> length, 1); // list of visited nodes (1 means visited)
+    char *noInputs = calloc(self.components -> length, 1); // list of nodes with no inputs (0 means no inputs)
+    // printf("wiring: ");
+    // list_print(self.wiring);
+    for (int i = 1; i < len; i += 3) {
+        noInputs[self.wiring -> data[i + 1].i] = 1;
+    }
+    // printf("noInputs: ");
+    // for (int i = 1; i < self.components -> length; i++) {
+    //     printf("%d, ", noInputs[i]);
+    // }
+    // printf("\n");
+
+    while (1) {
+        // find first unvisited node with no inputs
+        int selectedNode = 0;
+        
+        for (int i = 1; i < self.components -> length; i++) {
+            if (noInputs[i] == 0 && visited[i] == 0) {
+                selectedNode = i;
+                break;
+            }
+        }
+        if (selectedNode == 0) {
+            // no unvisited nodes with no inputs exist
+            for (int i = 1; i < self.components -> length; i++) {
+                if (visited[i] == 0) {
+                    selectedNode = i;
+                    break;
+                }
+            }
+            if (selectedNode == 0) {
+                // finished
+                printf("old wiring: ");
+                list_print(self.wiring);
+                list_t *toFree = self.wiring;
+                self.wiring = newWiringList;
+                list_free(toFree);
+                printf("new wiring: ");
+                list_print(self.wiring);
+                *selfp = self;
+                return;
+            }
+        }
+        printf("selected: %d\n", selectedNode);
+        visited[selectedNode] = 1;
+        // order all wires with selectedNode as an input, in order of their output component number
+        list_t *queue = list_init();
+        list_append(queue, (unitype) selectedNode, 'i');
+        while (queue -> length > 0) {
+            visited[queue -> data[0].i] = 1;
+            printf("queue: ");
+            list_print(queue);
+            int queueNode = queue -> data[0].i;
+            list_t *queueNewAdditions = list_init();
+            list_t *newWiringNewAdditions = list_init();
+            for (int i = 0; i < len; i += 3) {
+                if (/* selectedNode == queueNode && */self.wiring -> data[i + 2].i == queueNode && visited[self.wiring -> data[i + 1].i] == 0) {
+                    // grab wires that output to this node, if they are from unvisited nodes. This is not a great solution
+                    list_append(newWiringList, self.wiring -> data[i + 1], 'i');
+                    list_append(newWiringList, self.wiring -> data[i + 2], 'i');
+                    list_append(newWiringList, self.wiring -> data[i + 3], 'i');
+                }
+                if (self.wiring -> data[i + 1].i == queueNode) {
+                    if (visited[self.wiring -> data[i + 2].i] == 0) {
+                        list_append(newWiringNewAdditions, self.wiring -> data[i + 1], 'i');
+                        list_append(newWiringNewAdditions, self.wiring -> data[i + 2], 'i');
+                        list_append(newWiringNewAdditions, self.wiring -> data[i + 3], 'i');
+                        list_append(queueNewAdditions, self.wiring -> data[i + 2], i); // add to queue
+                    } else {
+                        // node has already been visited, add directly to newWiringList
+                        // list_append(newWiringList, self.wiring -> data[i + 1], 'i');
+                        // list_append(newWiringList, self.wiring -> data[i + 2], 'i');
+                        // list_append(newWiringList, self.wiring -> data[i + 3], 'i');
+                    }
+                }
+            }
+            // sort queueNewAdditions
+            for (int i = 0; i < queueNewAdditions -> length; i += 0) { // unorthadox, i know
+                int selection = 2147483647;
+                int index = -1;
+                for (int j = 0; j < queueNewAdditions -> length; j++) {
+                    if (selection > queueNewAdditions -> data[j].i) {
+                        index = j;
+                        selection = queueNewAdditions -> data[j].i;
+                    }
+                }
+                if (index == -1) {
+                    printf("this shouldn't happen\n");
+                    return;
+                }
+                list_append(newWiringList, newWiringNewAdditions -> data[index * 3], 'i');
+                list_delete(newWiringNewAdditions, index * 3);
+                list_append(newWiringList, newWiringNewAdditions -> data[index * 3], 'i');
+                list_delete(newWiringNewAdditions, index * 3);
+                list_append(newWiringList, newWiringNewAdditions -> data[index * 3], 'i');
+                list_delete(newWiringNewAdditions, index * 3);
+                list_append(queue, queueNewAdditions -> data[index], 'i');
+                list_delete(queueNewAdditions, index);
+            }
+            list_free(queueNewAdditions);
+            list_free(newWiringNewAdditions);
+            list_delete(queue, 0);
+        }
+    }
+}
+// depth-first sorts connections (to minimise inconsistent timing)
+void orderWiresDepth(logicgates *selfp) {
+    /*
+    from https://stackoverflow.com/questions/36687963/how-to-traverse-all-edges-efficiently
+    
+    procedure DFS(G,v):
+    label v as discovered
+    for all edges from v to w in G.adjacentEdges(v) do {
+        if (v < w) add edge(v,w) to output edges
+        if vertex w is not labeled as discovered then
+            recursively call DFS(G,w)
+    }
+    */
+    logicgates self = *selfp;
+    list_t *newWiringList = list_init(); // replace self.wiring with this list when completed
+    list_append(newWiringList, (unitype) 'n', 'c');
+    int len = self.wiring -> length;
+    char *visited = calloc(self.components -> length, 1); // list of visited nodes (1 means visited)
+    char *noOutputs = calloc(self.components -> length, 1); // list of nodes with no outputs (0 means no outputs)
+    // printf("wiring: ");
+    // list_print(self.wiring);
+    for (int i = 1; i < len; i += 3) {
+        noOutputs[self.wiring -> data[i].i] = 1;
+    }
+    // printf("noInputs: ");
+    // for (int i = 1; i < self.components -> length; i++) {
+    //     printf("%d, ", noInputs[i]);
+    // }
+    // printf("\n");
+
+    while (1) {
+        // find first unvisited node with no outputs
+        int selectedNode = 0;
+        
+        for (int i = 1; i < self.components -> length; i++) {
+            if (noOutputs[i] == 0 && visited[i] == 0) {
+                selectedNode = i;
+                break;
+            }
+        }
+        if (selectedNode == 0) {
+            // no unvisited nodes with no outputs exist, select first unvisited node
+            for (int i = 1; i < self.components -> length; i++) {
+                if (visited[i] == 0) {
+                    selectedNode = i;
+                    break;
+                }
+            }
+            if (selectedNode == 0) {
+                // no unvisited nodes exist
+                // finished
+                // printf("old wiring: ");
+                // list_print(self.wiring);
+                printf("old wiring length: %d\n", self.wiring -> length);
+                list_t *toFree = self.wiring;
+                self.wiring = newWiringList;
+                list_free(toFree);
+                // printf("new wiring: ");
+                // list_print(self.wiring);
+                printf("new wiring length: %d\n", self.wiring -> length);
+                *selfp = self;
+                return;
+            }
+        }
+        // printf("selected: %d\n", selectedNode);
+        // do DFS
+        list_t *stack = list_init();
+        list_append(stack, (unitype) selectedNode, 'i');
+        list_append(stack, (unitype) 0, 'i');
+        list_append(stack, (unitype) 0, 'i');
+        while (stack -> length > 0) {
+            int stackNode = stack -> data[stack -> length - 3].i;
+            visited[stackNode] = 1; // on stack
+            // printf("stack: ");
+            // list_print(stack);
+            int added = 0;
+            for (int i = 0; i < len; i += 3) {
+                if (self.wiring -> data[i + 2].i == stackNode) {
+                    // output is stackNode
+                    if (visited[self.wiring -> data[i + 1].i] == 0) {
+                        // input not visited
+                        // printf("hit!\n");
+                        list_append(stack, self.wiring -> data[i + 1], 'i'); // add to stack
+                        list_append(stack, self.wiring -> data[i + 2], 'i');
+                        list_append(stack, self.wiring -> data[i + 3], 'i');
+                        // visited[self.wiring -> data[i + 1].i] = 1; // on stack
+                        added++;
+                        break;
+                    } else {
+                        // input has been visited
+                        // printf("ayo\n");
+                        if (visited[self.wiring -> data[i + 1].i] == 1) {
+                            // check to ensure this hasn't already been added
+                            char found = 0;
+                            for (int j = 0; j < newWiringList -> length; j += 3) {
+                                if (newWiringList -> data[j + 1].i == self.wiring -> data[i + 1].i && newWiringList -> data[j + 2].i == self.wiring -> data[i + 2].i) {
+                                    found = 1;
+                                    break;
+                                }
+                            }
+                            if (found == 0) {
+                                list_append(newWiringList, self.wiring -> data[i + 1], 'i');
+                                list_append(newWiringList, self.wiring -> data[i + 2], 'i');
+                                list_append(newWiringList, self.wiring -> data[i + 3], 'i');
+                            }
+                        }
+                    }
+                }
+            }
+            if (added == 0) {
+                // if (stack -> length > 3) {
+                //     int stackNodeInput = stack -> data[stack -> length - 6].i;
+                //     visited[stackNode] = 2; // fully visited
+                //     char found = 0;
+                //     for (int i = 0; i < len; i += 3) {
+                //         if (self.wiring -> data[i + 1].i == stackNode && self.wiring -> data[i + 2].i == stackNodeInput) {
+                //             // wire connects last -> second to last on stack
+                //             list_append(newWiringList, self.wiring -> data[i + 1], 'i');
+                //             list_append(newWiringList, self.wiring -> data[i + 2], 'i');
+                //             list_append(newWiringList, self.wiring -> data[i + 3], 'i');
+                //             found = 1;
+                //             break;
+                //         }
+                //     }
+                //     if (found == 0) {
+                //         printf("this is a problem\n");
+                //     }
+                // }
+                list_pop(stack);
+                list_pop(stack);
+                list_pop(stack);
+            }
+        }
+    }
 }
 // draws the selection box
 void selectionBox(logicgates *selfp, double x1, double y1, double x2, double y2) {
@@ -1861,9 +2111,14 @@ void wireIO(logicgates *selfp, int index1, int index2) { // this script actually
     if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "POWER") == 0) // if I didn't use strings this could be a switch statement, in fact not using strings would have lots of performance benefits but I also don't care
         self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (self.io -> data[self.wiring -> data[index1].i * 3 - 2].i || self.io -> data[self.wiring -> data[index1].i * 3 - 1].i);
     if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "BUFFER") == 0) {
-        self.io -> data[self.wiring -> data[index1].i * 3] = self.io -> data[self.wiring -> data[index1].i * 3 - 1];
-        self.io -> data[self.wiring -> data[index1].i * 3 - 1] = self.io -> data[self.wiring -> data[index1].i * 3 - 2];
+        // need to ensure this can't happen multiple times per tick, so I use the last inpComp as a flag (since buffer only has one input)
+        if (self.inpComp -> data[self.wiring -> data[index1].i * 3].i == -1) {
+            self.io -> data[self.wiring -> data[index1].i * 3] = self.io -> data[self.wiring -> data[index1].i * 3 - 1]; // pipe
+            self.io -> data[self.wiring -> data[index1].i * 3 - 1] = self.io -> data[self.wiring -> data[index1].i * 3 - 2]; // pipe
+            self.inpComp -> data[self.wiring -> data[index1].i * 3].i = 0; // set flag UP (0 is UP because -1 is reset, for... reasons)
+        }
     }
+
     if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "NOT") == 0)
         self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (!self.io -> data[self.wiring -> data[index1].i * 3 - 2].i);
     if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "AND") == 0)
@@ -1877,17 +2132,28 @@ void wireIO(logicgates *selfp, int index1, int index2) { // this script actually
     if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "NAND") == 0)
         self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (!(self.io -> data[self.wiring -> data[index1].i * 3 - 2].i && self.io -> data[self.wiring -> data[index1].i * 3 - 1].i));
     self.wiring -> data[index1 + 2] = self.io -> data[self.wiring -> data[index1].i * 3];
-    if (self.inpComp -> data[self.wiring -> data[index2].i * 3 - 1].i == self.wiring -> data[index1].i)
+
+    // set inputs of connected components to output of this one
+    if (self.inpComp -> data[self.wiring -> data[index2].i * 3 - 1].i == self.wiring -> data[index1].i) {
+        // set input1
         self.io -> data[self.wiring -> data[index1 + 1].i * 3 - 2] = self.io -> data[self.wiring -> data[index1].i * 3];
-    else
+        if (strcmp(self.components -> data[self.wiring -> data[index1 + 1].i].s, "BUFFER") == 0) {
+            // reset buffer flag (-1 is reset, 0 is UP)
+            // printf("i output to a buffer\n");
+            self.inpComp -> data[self.wiring -> data[index1 + 1].i * 3].i = -1;
+        }
+    } else {
+        // set input2
         self.io -> data[self.wiring -> data[index1 + 1].i * 3 - 1] = self.io -> data[self.wiring -> data[index1].i * 3];
+    }
+    
     
     
 }
 void wireAngle(logicgates *selfp, int index1, int index2) {
     logicgates self = *selfp;
     if (self.compSlots -> data[list_find(self.compSlots, self.components -> data[self.wiring -> data[index2].i], 's') + 1].i == 2) {
-        if (self.inpComp -> data[self.wiring -> data[index2].i * 3].i == 0) {
+        if (self.inpComp -> data[self.wiring -> data[index2].i * 3].i < 1) {
             self.wxOffE = 0;
             self.wyOffE = 0;
         } else {
@@ -2315,7 +2581,7 @@ void mouseTick(logicgates *selfp) {
                     for (int i = 1; i < len; i++) {
                         turtleGoto((self.positions -> data[self.selected -> data[i].i * 3 - 2].d + self.screenX) * self.globalsize, (self.positions -> data[self.selected -> data[i].i * 3 - 1].d + self.screenY) * self.globalsize);
                         turtlePenDown();
-                        if ((!(self.hlgcomp == 0 && !(self.hlgcomp == self.wiringStart))) && (self.inpComp -> data[self.wiringEnd * 3 - 1].i == 0 || (self.inpComp -> data[self.wiringEnd * 3].i == 0 && !(self.inpComp -> data[self.wiringEnd * 3 - 1].i == self.wiringStart && self.inpComp -> data[self.wiringEnd * 3 - 2].i > 1))))
+                        if ((!(self.hlgcomp == 0 && !(self.hlgcomp == self.wiringStart))) && (self.inpComp -> data[self.wiringEnd * 3 - 1].i < 1 || (self.inpComp -> data[self.wiringEnd * 3].i < 1 && !(self.inpComp -> data[self.wiringEnd * 3 - 1].i == self.wiringStart && self.inpComp -> data[self.wiringEnd * 3 - 2].i > 1))))
                             turtleGoto((self.positions -> data[self.hlgcomp * 3 - 2].d + self.screenX) * self.globalsize, (self.positions -> data[self.hlgcomp * 3 - 1].d + self.screenY) * self.globalsize);
                         else
                             turtleGoto(self.mx, self.my);
@@ -2333,7 +2599,7 @@ void mouseTick(logicgates *selfp) {
                     } else {
                         turtleGoto((self.positions -> data[self.wiringStart * 3 - 2].d + self.screenX) * self.globalsize, (self.positions -> data[self.wiringStart * 3 - 1].d + self.screenY) * self.globalsize);
                         turtlePenDown();
-                        if ((self.hlgcomp != 0) && (self.wiringEnd > 0) && (self.hlgcomp != self.wiringStart) && (self.inpComp -> data[self.wiringEnd * 3 - 1].i == 0 || (self.inpComp -> data[self.wiringEnd * 3].i == 0 && (self.inpComp -> data[self.wiringEnd * 3 - 1].i != self.wiringStart) && self.inpComp -> data[self.wiringEnd * 3 - 2].i > 1)))
+                        if ((self.hlgcomp != 0) && (self.wiringEnd > 0) && (self.hlgcomp != self.wiringStart) && (self.inpComp -> data[self.wiringEnd * 3 - 1].i < 1 || (self.inpComp -> data[self.wiringEnd * 3].i < 1 && (self.inpComp -> data[self.wiringEnd * 3 - 1].i != self.wiringStart) && self.inpComp -> data[self.wiringEnd * 3 - 2].i > 1)))
                             turtleGoto((self.positions -> data[self.hlgcomp * 3 - 2].d + self.screenX) * self.globalsize, (self.positions -> data[self.hlgcomp * 3 - 1].d + self.screenY) * self.globalsize);
                         else
                             turtleGoto(self.mx, self.my);
@@ -2498,7 +2764,7 @@ void mouseTick(logicgates *selfp) {
                                 }
                             }
                             if (self.inpComp -> data[wireEQueue -> data[k].i * 3 - 1].i == wireSQueue -> data[j].i) {
-                                if (self.inpComp -> data[wireEQueue -> data[k].i * 3].i == 0) {
+                                if (self.inpComp -> data[wireEQueue -> data[k].i * 3].i < 1) {
                                     self.inpComp -> data[wireEQueue -> data[k].i * 3 - 1] = (unitype) 0;
                                     self.io -> data[wireEQueue -> data[k].i * 3 - 2] = (unitype) 0;
                                 } else {
@@ -2510,13 +2776,13 @@ void mouseTick(logicgates *selfp) {
                             }
                             self.io -> data[wireEQueue -> data[k].i * 3 - 1] = (unitype) 0;
                         } else {
-                            if (self.inpComp -> data[wireEQueue -> data[k].i * 3 - 1].i == 0) {
+                            if (self.inpComp -> data[wireEQueue -> data[k].i * 3 - 1].i < 1) {
                                 self.inpComp -> data[wireEQueue -> data[k].i * 3 - 1] = wireSQueue -> data[j];
                                 list_append(self.wiring, wireSQueue -> data[j], 'i');
                                 list_append(self.wiring, wireEQueue -> data[k], 'i');
                                 list_append(self.wiring, (unitype) 0, 'i');
                             } else {
-                                if (self.inpComp -> data[wireEQueue -> data[k].i * 3].i == 0 && !(self.inpComp -> data[wireEQueue -> data[k].i * 3 - 1].i == wireSQueue -> data[j].i) && self.inpComp -> data[wireEQueue -> data[k].i * 3 - 2].i > 1) {
+                                if (self.inpComp -> data[wireEQueue -> data[k].i * 3].i < 1 && !(self.inpComp -> data[wireEQueue -> data[k].i * 3 - 1].i == wireSQueue -> data[j].i) && self.inpComp -> data[wireEQueue -> data[k].i * 3 - 2].i > 1) {
                                     self.inpComp -> data[wireEQueue -> data[k].i * 3] = wireSQueue -> data[j];
                                     list_append(self.wiring, wireSQueue -> data[j], 'i');
                                     list_append(self.wiring, wireEQueue -> data[k], 'i');
@@ -2814,6 +3080,7 @@ void hotkeyTick(logicgates *selfp) {
                 undo(&self);
             } else {
                 snapToGrid(&self, 8);
+                orderWiresDepth(&self);
                 // update undo
                 addUndo(&self);
             }

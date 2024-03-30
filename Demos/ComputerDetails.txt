@@ -38,7 +38,7 @@ Prgm1: add two numbers, place inputs in mem0 and mem1
 Collatz: input number in mem7, input 1 into mem4, input 7 into mem5:
 10 111 1 00 - load mem7 into reg0
 10 100 1 11 - load mem4 into reg3 (this should be 1)
-10 101 1 10 - load mem5 into reg2 (this should be 8)
+10 101 1 10 - load mem5 into reg2 (this should be 7)
 01 00 01 10 - jump to reg2 if reg0 is even, this will jump to instruction 9 since it jumps to (7 + 2)
 // assume reg0 is odd
 00 00 00 01 - add reg0 and reg0 - save in reg1
