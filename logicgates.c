@@ -29,6 +29,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     char debugTick;
     char flashTicks; // when turning on debug mode, there's a white flash over the screen
     char showComponentIDOnHover; // if this is 1, hovering over a component shows you it's ID
+    char gridMode; // if this is 1, components snap to grid when placing them
     double scrollSpeed; // how fast the scroll zooms in, I think it's a 1.15x
     double arrowScrollSpeed; // how fast the arrow keys zoom, 1.001x
     double rotateSpeed; // how fast the arrow keys rotate components
@@ -102,6 +103,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
 void init(logicgates *selfp) { // initialises the logicgates variabes (shared state)
     logicgates self = *selfp;
     self.showComponentIDOnHover = 0; // unused (for now)
+    self.gridMode = 0; // unfinished, should not be difficult to do just time consuming
     self.debugMode = 0;
     self.globalsize = 1.5;
     double themes[55] = {0,
@@ -1320,11 +1322,13 @@ void addDebugUndo(logicgates *selfp) {
     for (int i = 1; i < self.wiring -> length; i++) {
         list_append(self.debugUndoBuffer -> data[self.debugUndoIndex].r, self.wiring -> data[i], 'i');
     }
+    // printf("%d %d\n", self.debugUndoIndex, self.debugUndoBuffer -> length);
     *selfp = self;
 }
 void transferUndoBuffer(logicgates *selfp, char debug) { // transfers undoBuffer data to the working lists
     // debug indicates whether we pull from the debug list or the normal undo list
     logicgates self = *selfp;
+    // printf("%d %d\n", self.debugUndoIndex, self.debugUndoBuffer -> length);
     // no selecting when undoing
     self.wireHold = 0; // this literally does nothing. Like it doesn't even set wireHold to 0 i dont know why
     self.selecting = 0;
@@ -1741,7 +1745,6 @@ void orderWiresDepth(logicgates *selfp) {
     }
     */
     correctWires(selfp);
-    return;
     logicgates self = *selfp;
 
 
@@ -2415,9 +2418,6 @@ void renderComp(logicgates *selfp) { // this function renders all the components
     *selfp = self;
 }
 void renderWire(logicgates *selfp, double size) { // this function renders all the wiring in the window (a bit buggy if the components are outside the window, it doesn't do line intercepts and is likely bounded by total screen size but if I were to do bound intercepts I would do it in the turtle abstration)
-    if (selfp -> debugMode == 1 && selfp -> debugTick == 1) {
-        addDebugUndo(selfp); // update undo buffer
-    }
     logicgates self = *selfp;
     self.globalsize *= 0.75; // um just resizing no big deal
     turtlePenSize(size * self.scaling);
@@ -2461,9 +2461,12 @@ void renderWire(logicgates *selfp, double size) { // this function renders all t
             turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
         }
     }
-    self.debugTick = 0;
     self.globalsize /= 0.75;
     *selfp = self;
+    if (selfp -> debugMode == 1 && selfp -> debugTick == 1) {
+        addDebugUndo(selfp); // update undo buffer
+    }
+    selfp -> debugTick = 0;
 }
 // this function draws the sidebar, but really its never on the side it's a bottom or top bar
 void renderSidebar(logicgates *selfp, char side) {
@@ -3410,6 +3413,7 @@ void hotkeyTick(logicgates *selfp) {
             self.debugUndoIndex = 0;
             list_clear(self.debugUndoBuffer);
             list_append(self.debugUndoBuffer, (unitype) 'n', 'c');
+            // self.debugTick = 1;
             self.flashTicks = 10;
             self.keys[28] = 1;
         }
@@ -3422,6 +3426,8 @@ void hotkeyTick(logicgates *selfp) {
         if (!self.keys[29]) {
             self.keys[29] = 1;
             orderWiresDepth(&self);
+            // update undo
+            addUndo(&self);
         }
     } else {
         if (self.keys[29]) {
@@ -3729,6 +3735,37 @@ void renderTabs(logicgates *selfp) {
     }
     turtle.penshape = selfp -> defaultShape;
 }
+// render holding component
+void renderHoldingComponent(logicgates *selfp) {
+    logicgates self = *selfp;
+    double compX = 0;
+    double compY = 0;
+    turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+    if (self.gridMode) {
+        compX = round(self.mx / 8) * 8;
+        compY = round(self.my / 8) * 8;
+    } else {
+        compX = self.mx;
+        compY = self.my;
+    }
+    if (strcmp(self.holding, "POWER") == 0)
+        POWER(&self, compX, compY, self.globalsize, self.holdingAng, 0, 0);
+    if (strcmp(self.holding, "AND") == 0)
+        AND(&self, compX, compY, self.globalsize, self.holdingAng);
+    if (strcmp(self.holding, "OR") == 0)
+        OR(&self, compX, compY, self.globalsize, self.holdingAng);
+    if (strcmp(self.holding, "NOT") == 0)
+        NOT(&self, compX, compY, self.globalsize, self.holdingAng);
+    if (strcmp(self.holding, "XOR") == 0)
+        XOR(&self, compX, compY, self.globalsize, self.holdingAng);
+    if (strcmp(self.holding, "NOR") == 0)
+        NOR(&self, compX, compY, self.globalsize, self.holdingAng);
+    if (strcmp(self.holding, "NAND") == 0)
+        NAND(&self, compX, compY, self.globalsize, self.holdingAng);
+    if (strcmp(self.holding, "BUFFER") == 0)
+        BUFFER(&self, compX, compY, self.globalsize, self.holdingAng);
+    *selfp = self;
+}
 // used to be in main loop but
 void utilLoop(logicgates *selfp) {
     turtleGetMouseCoords(); // get the mouse coordinates
@@ -3866,24 +3903,7 @@ int main(int argc, char *argv[]) {
         renderWire(&self, self.globalsize);
         renderSidebar(&self, self.sidebar);
         hlgcompset(&self);
-        // render holding component
-        turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
-        if (strcmp(self.holding, "POWER") == 0)
-            POWER(&self, self.mx, self.my, self.globalsize, self.holdingAng, 0, 0);
-        if (strcmp(self.holding, "AND") == 0)
-            AND(&self, self.mx, self.my, self.globalsize, self.holdingAng);
-        if (strcmp(self.holding, "OR") == 0)
-            OR(&self, self.mx, self.my, self.globalsize, self.holdingAng);
-        if (strcmp(self.holding, "NOT") == 0)
-            NOT(&self, self.mx, self.my, self.globalsize, self.holdingAng);
-        if (strcmp(self.holding, "XOR") == 0)
-            XOR(&self, self.mx, self.my, self.globalsize, self.holdingAng);
-        if (strcmp(self.holding, "NOR") == 0)
-            NOR(&self, self.mx, self.my, self.globalsize, self.holdingAng);
-        if (strcmp(self.holding, "NAND") == 0)
-            NAND(&self, self.mx, self.my, self.globalsize, self.holdingAng);
-        if (strcmp(self.holding, "BUFFER") == 0)
-            BUFFER(&self, self.mx, self.my, self.globalsize, self.holdingAng);
+        renderHoldingComponent(&self);
         ribbonUpdate(); // do ribbon before mouseTick
         parseRibbonOutput(&self);
         renderTabs(&self);
