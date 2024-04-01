@@ -1962,7 +1962,7 @@ void hlgcompset(logicgates *selfp) { // sets hlgcomp to whatever component the m
         // printf("comp: %d\n", self.hlgcomp);
         turtlePenColor(255, 255, 255);
         char compID[12];
-        itoa(self.hlgcomp, compID, 10);
+        sprintf(compID, "%d", self.hlgcomp);
         textGLWriteString(compID, (self.positions -> data[self.hlgcomp * 3 - 2].d + self.screenX) * self.globalsize, (self.positions -> data[self.hlgcomp * 3 - 1].d + self.screenY) * self.globalsize, self.globalsize * 10, 50);
     }
     self.globalsize /= 0.75;
