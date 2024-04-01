@@ -24,10 +24,10 @@ keybind shortcuts to make building circuits faster.
 * click on a POWER component to toggle it on/off
 * scroll wheel - zoom
 * space + click + drag - create wire
-* 1, e, p - POWER component (input/output)
-* 2, n - NOT gate
-* 3, a - AND gate
-* 4, q, o - OR gate
+* 1 or e - POWER component (input/output)
+* 2 or n - NOT gate
+* 3 or a - AND gate
+* 4, q, or o - OR gate
 * 5 - XOR gate
 * 6 - NOR gate
 * 7 - NAND gate
@@ -44,8 +44,10 @@ keybind shortcuts to make building circuits faster.
 * k - export to file
 * h - toggle sidebar
 * w - toggle wireMode
-* t - toggle theme (dark/light)
+* t - toggle a POWER component
+* shift + t - toggle theme (dark/light)
 * z - snap to grid
+* p - correct wiring
 * ctrl + c - copy
 * ctrl + x - cut
 * ctrl + v - paste
@@ -84,10 +86,10 @@ But I want consistent behaviour, so I have to think of something to do about thi
 * Instead of Breadth first search, do Depth first search
 * Implementation is a little strange. And the fact that I have to check for duplicates every time I update a wire is worrying. That shouldn't have to happen but cycles cause problems if that isn't done.
 * It's not perfect either, but it is a lot better
-* Every time you press Z to snap to grid it will also update your wire orders to a "standard ordering". This ordering SHOULDN'T change based on when you created the components and wires. I haven't proven that this is the case though. I suspect it is not though, which means I have more work to do.
+* Press P to update your wire orders to a "standard ordering". This ordering SHOULDN'T change based on when you created the components and wires. I haven't proven that this is the case though. I suspect it is not though, which means I have more work to do.
 * The "standard ordering" also attempts to minimise component delay wherever possible. Buffers in standard ordering should never take two ticks to pass a signal, though I have seen it happen, and there may be ways to force this behaviour with specific paradoxical wiring. Additionally, two-input components (AND, OR, etc) should activate instantly with no delay. This is usually the case, but it can't always be ensured.
 * It is possible for, during a single tick, a component to have two different outputs. Particularly observable in the case of a NOR latch. The output of a latch is instant, but the updating of the internal state of the latch takes an extra tick. In the one tick between, the NOR gate will be outputting a set or reset to the output and the opposite to the other NOR gate. There may be something that can be done about this.
-
+* The P key also attempts to fix any rifts between wire rendering and internal processing. Think of it like pressing Ctrl + L in gdb tui
 
 ### Personal Feature Request:
  - Grid mode

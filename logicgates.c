@@ -28,6 +28,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     char debugMode; // debug mode is 1 when the editor is in debug step mode. In this mode, CTRL + Space steps a single tick and CTRL + Scroll will also step (allowing for many steps to be done quickly)
     char debugTick;
     char flashTicks; // when turning on debug mode, there's a white flash over the screen
+    char showComponentIDOnHover; // if this is 1, hovering over a component shows you it's ID
     double scrollSpeed; // how fast the scroll zooms in, I think it's a 1.15x
     double arrowScrollSpeed; // how fast the arrow keys zoom, 1.001x
     double rotateSpeed; // how fast the arrow keys rotate components
@@ -79,7 +80,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     list_t *groups; // list of group data (1 element per component, integer represents group ID, -1 is no group. IDs start at 1. 0 is not used)
     list_t *positions; // list of component positions (3 items for each component, doubles specifying x, y, and angle)
     list_t *io; // list of binary inputs and outputs of a component (3 items for each component, 2 inputs followed by the output of the component (either a 0 or 1))
-    list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible inputs (either 1 or 2), input 1 (ID, 0 or less if none), input 2 (ID, 0 if none)
+    list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible inputs (either 1 or 2), input 1 (ID, 0 or less if none), input 2 (ID, 0 or less if none)
     list_t *wiring; // list of component connections (3 items per connection, it goes sender (ID), reciever (ID), powered (0 or 1))
     
     char keys[32];
@@ -100,6 +101,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
 } logicgates;
 void init(logicgates *selfp) { // initialises the logicgates variabes (shared state)
     logicgates self = *selfp;
+    self.showComponentIDOnHover = 0; // unused (for now)
     self.debugMode = 0;
     self.globalsize = 1.5;
     double themes[55] = {0,
@@ -713,29 +715,37 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
     logicgates self = *selfp;
     
     // identify input to deleted component
+    // list_print(self.inpComp);
     int inputCon = -1;
     if (replace && self.inpComp -> data[index * 3].i < 1) { // any component with one input
         // identify input (if any)
-        for (int j = 1; j < self.wiring -> length; j += 3) {
-            if (self.wiring -> data[j + 1].i == index) {
-                inputCon = self.wiring -> data[j].i;
-                if (inputCon > index) {
-                    inputCon--;
-                }
-                break;
+        if (self.inpComp -> data[index * 3 - 1].i > 0) {
+            inputCon = self.inpComp -> data[index * 3 - 1].i;
+            if (inputCon > index) {
+                inputCon--;
             }
         }
+        // for (int j = 1; j < self.wiring -> length; j += 3) {
+        //     if (self.wiring -> data[j + 1].i == index) {
+        //         inputCon = self.wiring -> data[j].i;
+        //         if (inputCon > index) {
+        //             inputCon--;
+        //         }
+        //         break;
+        //     }
+        // }
     }
     // gather numInputs and numInputsHolding
     char doDelete = 1;
-    int numInputs = self.inpComp -> data[index * 3 - 2].i; // numInputs is how many actual wire inputs are connected to this component
+    /* set numInputs to how many actual wire inputs are connected to this component */
+    int numInputs = 2; 
     if (numInputs == 2 && self.inpComp -> data[index * 3].i < 1) {
         // if it can support two but only has one
-        numInputs--;
+        numInputs = 1;
     }
     if (self.inpComp -> data[index * 3 - 1].i < 1) {
         // this is equivalent to 0 inputs
-        numInputs--;
+        numInputs = 0;
     }
     int numInputsHolding = 0;
     if (strcmp(self.holding, "a") != 0 && strcmp(self.holding, "b") != 0) {
@@ -753,6 +763,8 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
             self.inpComp -> data[index * 3 - 2].i = numInputsHolding;
             // other inpComp does not change
             // wiring does not change
+            *selfp = self;
+            return;
         }
     }
     // reform selected components
@@ -764,6 +776,7 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
             }
         }
     }
+    // printf("inputCon: %d\n", inputCon);
     // printf("%s %d %d %d\n", self.holding, numInputs, numInputsHolding, inputCon);
     int i = 1;
     int k = (int) round((self.wiring -> length - 1) / 3);
@@ -824,6 +837,15 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
                         } else {
                             // one input component replace case
                             self.inpComp -> data[i] = (unitype) inputCon;
+                            // this may also be unecessary
+                            // if (self.inpComp -> data[i + 1].i > index) {
+                            //     self.inpComp -> data[i + 1].i--;
+                            // }
+                            // // extra check. Are both inputs the same? (might be unecessary in this case but I'm not sure)
+                            // if (self.inpComp -> data[i + 1].i == inputCon) {
+                            //     // delete the second input
+                            //     self.inpComp -> data[i + 1].i = 0;
+                            // }
                         }
                     }
                 } else {
@@ -842,7 +864,18 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
                             // no change in inpComp
                         } else {
                             // case: replace (still shift)
+                            // printf("case: replace (still shift)\n");
                             self.inpComp -> data[i] = (unitype) inputCon;
+                            // ensure second input is properly shifted
+                            if (self.inpComp -> data[i + 1].i > index) {
+                                self.inpComp -> data[i + 1].i--;
+                            }
+                            // extra check. Are both inputs the same?
+                            if (self.inpComp -> data[i + 1].i == inputCon) {
+                                // delete the second input
+                                // printf("hit extra check\n");
+                                self.inpComp -> data[i + 1].i = 0;
+                            }
                         }
                     }
                 }
@@ -858,12 +891,19 @@ void deleteComp(logicgates *selfp, int index, int replace) { // deletes a compon
                     if (numInputsHolding >= numInputs) {
                         // case: replace
                         // no change in inpComp
+                        // printf("case: replace\n");
                     } else {
                         // case: replace second input
+                        // printf("case: replace second input\n");
                         if (self.inpComp -> data[i].i > index) {
                             self.inpComp -> data[i].i--;
                         }
                         self.inpComp -> data[i + 1] = (unitype) inputCon;
+                        // extra check. Are both inputs the same?
+                        if (self.inpComp -> data[i].i == inputCon) {
+                            // delete the second input
+                            self.inpComp -> data[i + 1].i = 0;
+                        }
                     }
                 }
             }
@@ -1571,6 +1611,122 @@ void orderWiresBreadth(logicgates *selfp) {
         }
     }
 }
+// removes invalid and duplicate wires
+void correctWires(logicgates *selfp) {
+    logicgates self = *selfp;
+    /* Ensure no component has an input that is itself */
+    int input1 = 0;
+    int input2 = 0;
+    int output = 0;
+    for (int i = 1; i < self.inpComp -> length; i += 3) {
+        output = (i + 2) / 3;
+        input1 = self.inpComp -> data[i + 1].i;
+        input2 = self.inpComp -> data[i + 2].i;
+        if (input2 == output) {
+            printf("removing faulty self-input from component %d\n", output);
+            self.inpComp -> data[i + 2].i = 0;
+        }
+        if (input1 == output) {
+            printf("removing faulty self-input from component %d\n", output);
+            if (self.inpComp -> data[i].i == 2 && self.inpComp -> data[i + 2].i > 0) {
+                self.inpComp -> data[i + 1].i = self.inpComp -> data[i + 2].i;
+            } else {
+                self.inpComp -> data[i + 1].i = 0;
+            }
+        }
+    }
+    /* Ensure inpComp is formatted correctly */
+    for (int i = 1; i < self.inpComp -> length; i += 3) {
+        output = (i + 2) / 3;
+        input1 = self.inpComp -> data[i + 1].i;
+        input2 = self.inpComp -> data[i + 2].i;
+        if (input2 > 0) {
+            if (input1 < 1) {
+                printf("fixed inpComp for component %d, single input was in the wrong spot\n", output);
+                self.inpComp -> data[i + 1].i = input2;
+                self.inpComp -> data[i + 2].i = input1;
+            }
+        }
+    }
+    /* Remove wires to yourself (idk how this ends up happening, seems like it only happens with component 1?) */
+    for (int i = 1; i < self.wiring -> length; i += 3) {
+        if (self.wiring -> data[i].i == self.wiring -> data[i + 1].i) {
+            printf("deleted wire: %d -> %d\n", self.wiring -> data[i].i, self.wiring -> data[i + 1].i);
+            list_delete(self.wiring, i);
+            list_delete(self.wiring, i);
+            list_delete(self.wiring, i);
+            i -= 3;
+        }
+    }
+    /* Ensure no wire duplicates exist */
+    int dupInput = 0;
+    int dupOutput = 0;
+    for (int i = 1; i < self.wiring -> length; i += 3) {
+        dupInput = self.wiring -> data[i].i;
+        dupOutput = self.wiring -> data[i + 1].i;
+        for (int j = i + 3; j < self.wiring -> length; j += 3) {
+            if (dupInput == self.wiring -> data[j].i && dupOutput == self.wiring -> data[j + 1].i) {
+                printf("deleted duplicate wire: %d -> %d\n", dupInput, dupOutput);
+                list_delete(self.wiring, j);
+                list_delete(self.wiring, j);
+                list_delete(self.wiring, j);
+                j -= 3;
+            }
+        }
+    }
+    /* Ensure all wires agree with inpComp */
+    for (int i = 1; i < self.wiring -> length; i += 3) {
+        dupInput = self.wiring -> data[i].i;
+        dupOutput = self.wiring -> data[i + 1].i;
+        if (self.inpComp -> data[dupOutput * 3].i == dupInput || self.inpComp -> data[dupOutput * 3 - 1].i == dupInput) {
+            // nothing
+        } else {
+            printf("deleting wire found from %d -> %d, but %d has inputs %d and %d\n", dupInput, dupOutput, dupOutput, self.inpComp -> data[dupOutput * 3].i, self.inpComp -> data[dupOutput * 3 - 1].i);
+            list_delete(self.wiring, i);
+            list_delete(self.wiring, i);
+            list_delete(self.wiring, i);
+            i -= 3;
+        }
+    }
+    /* Ensure all inpComp is covered by wires */
+    for (int i = 1; i < self.inpComp -> length; i += 3) {
+        output = (i + 2) / 3;
+        input1 = self.inpComp -> data[i + 1].i;
+        input2 = self.inpComp -> data[i + 2].i;
+        if (input1 > 0) {
+            char found = 0;
+            for (int j = 1; j < self.wiring -> length; j += 3) {
+                if (self.wiring -> data[j].i == input1 && self.wiring -> data[j + 1].i == output) {
+                    found = 1;
+                    break;
+                }
+            }
+            if (found == 0) {
+                printf("did not find a wire for input1: %d, output: %d, adding it\n", input1, output);
+                list_append(self.wiring, (unitype) input1, 'i');
+                list_append(self.wiring, (unitype) output, 'i');
+                list_append(self.wiring, self.io -> data[input1 * 3], 'i');
+            }
+        }
+        if (input2 > 0) {
+            char found = 0;
+            for (int j = 1; j < self.wiring -> length; j += 3) {
+                if (self.wiring -> data[j].i == input2 && self.wiring -> data[j + 1].i == output) {
+                    found = 1;
+                    break;
+                }
+            }
+            if (found == 0) {
+                printf("did not find a wire for input2: %d, output: %d, adding it\n", input2, output);
+                list_append(self.wiring, (unitype) input2, 'i');
+                list_append(self.wiring, (unitype) output, 'i');
+                list_append(self.wiring, self.io -> data[input2 * 3], 'i');
+            }
+        }
+    }
+    printf("wiring length: %d\n", self.wiring -> length);
+    *selfp = self;
+}
 // depth-first sorts connections (to minimise inconsistent timing)
 void orderWiresDepth(logicgates *selfp) {
     /*
@@ -1584,7 +1740,11 @@ void orderWiresDepth(logicgates *selfp) {
             recursively call DFS(G,w)
     }
     */
+    correctWires(selfp);
+    return;
     logicgates self = *selfp;
+
+
     list_t *newWiringList = list_init(); // replace self.wiring with this list when completed
     list_append(newWiringList, (unitype) 'n', 'c');
     int len = self.wiring -> length;
@@ -1624,13 +1784,13 @@ void orderWiresDepth(logicgates *selfp) {
                 // finished
                 // printf("old wiring: ");
                 // list_print(self.wiring);
-                printf("old wiring length: %d\n", self.wiring -> length);
+                // printf("old wiring length: %d\n", self.wiring -> length);
                 list_t *toFree = self.wiring;
                 self.wiring = newWiringList;
                 list_free(toFree);
                 // printf("new wiring: ");
                 // list_print(self.wiring);
-                printf("new wiring length: %d\n", self.wiring -> length);
+                // printf("new wiring length: %d\n", self.wiring -> length);
                 *selfp = self;
                 return;
             }
@@ -1794,6 +1954,13 @@ void hlgcompset(logicgates *selfp) { // sets hlgcomp to whatever component the m
         if (self.groups -> data[self.hglmove].i > 0) {
             groupBox(&self, self.groups -> data[self.hglmove].i);
         }
+    }
+    if (self.showComponentIDOnHover && self.hlgcomp > 0) {
+        // printf("comp: %d\n", self.hlgcomp);
+        turtlePenColor(255, 255, 255);
+        char compID[12];
+        itoa(self.hlgcomp, compID, 10);
+        textGLWriteString(compID, (self.positions -> data[self.hlgcomp * 3 - 2].d + self.screenX) * self.globalsize, (self.positions -> data[self.hlgcomp * 3 - 1].d + self.screenY) * self.globalsize, self.globalsize * 10, 50);
     }
     self.globalsize /= 0.75;
     *selfp = self;
@@ -2883,7 +3050,7 @@ void hotkeyTick(logicgates *selfp) {
     } else {
         self.keys[5] = 0;
     }
-    if (turtleKeyPressed(GLFW_KEY_P) || turtleKeyPressed(GLFW_KEY_E) || turtleKeyPressed(GLFW_KEY_1)) { // p, e, and 1
+    if (turtleKeyPressed(GLFW_KEY_E) || turtleKeyPressed(GLFW_KEY_1)) { // p, e, and 1
         if (!self.keys[6]) {
             if (strcmp(self.holding, "POWER") == 0)
                 self.holding = "a";
@@ -2973,19 +3140,28 @@ void hotkeyTick(logicgates *selfp) {
         self.keys[10] = 0;
     }
     if (turtleKeyPressed(GLFW_KEY_T)) { // t key
-        if (!self.keys[11]) {
-            if (self.theme == 0) {
-                self.theme = 27;
-                ribbonDarkTheme();
-                popupDarkTheme();
-            } else {
-                self.theme = 0;
-                ribbonLightTheme();
-                popupLightTheme();
+        if (turtleKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
+            if (!self.keys[11]) {
+                if (self.theme == 0) {
+                    self.theme = 27;
+                    ribbonDarkTheme();
+                    popupDarkTheme();
+                } else {
+                    self.theme = 0;
+                    ribbonLightTheme();
+                    popupLightTheme();
+                }
+                turtleBgColor(self.themeColors[25 + self.theme], self.themeColors[26 + self.theme], self.themeColors[27 + self.theme]);
             }
-            turtleBgColor(self.themeColors[25 + self.theme], self.themeColors[26 + self.theme], self.themeColors[27 + self.theme]);
+            self.keys[11] = 1;
+        } else {
+            if (!self.keys[11]) {
+                if (self.hlgcomp > 0 || strcmp(self.components -> data[self.hlgcomp].s, "POWER") == 0) {
+                    self.io -> data[self.hlgcomp * 3 - 1].i = !self.io -> data[self.hlgcomp * 3 - 1].i;
+                }
+            }
+            self.keys[11] = 1;
         }
-        self.keys[11] = 1;
     } else {
         self.keys[11] = 0;
     }
@@ -3080,7 +3256,6 @@ void hotkeyTick(logicgates *selfp) {
                 undo(&self);
             } else {
                 snapToGrid(&self, 8);
-                orderWiresDepth(&self);
                 // update undo
                 addUndo(&self);
             }
@@ -3241,6 +3416,16 @@ void hotkeyTick(logicgates *selfp) {
     } else {
         if (self.keys[28]) {
             self.keys[28] = 0;
+        }
+    }
+    if (turtleKeyPressed(GLFW_KEY_P)) {
+        if (!self.keys[29]) {
+            self.keys[29] = 1;
+            orderWiresDepth(&self);
+        }
+    } else {
+        if (self.keys[29]) {
+            self.keys[29] = 0;
         }
     }
     *selfp = self;
