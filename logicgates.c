@@ -30,6 +30,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     char flashTicks; // when turning on debug mode, there's a white flash over the screen
     char showComponentIDOnHover; // if this is 1, hovering over a component shows you it's ID
     char gridMode; // if this is 1, components snap to grid when placing them
+    double snapRad; // how many pixels to align grid to
     double scrollSpeed; // how fast the scroll zooms in, I think it's a 1.15x
     double arrowScrollSpeed; // how fast the arrow keys zoom, 1.001x
     double rotateSpeed; // how fast the arrow keys rotate components
@@ -104,6 +105,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     logicgates self = *selfp;
     self.showComponentIDOnHover = 0; // unused (for now)
     self.gridMode = 0; // unfinished, should not be difficult to do just time consuming
+    self.snapRad = 8;
     self.debugMode = 0;
     self.globalsize = 1.5;
     double themes[55] = {0,
@@ -2581,10 +2583,19 @@ void mouseTick(logicgates *selfp) {
                         self.selectX = self.mx;
                         self.selectY = self.my;
                     } else {
+                        double augmentedMouseX = 0;
+                        double augmentedMouseY = 0;
+                        if (self.gridMode) {
+                            augmentedMouseX = round(self.mx / (self.snapRad * self.globalsize)) * (self.snapRad * self.globalsize);
+                            augmentedMouseY = round(self.my / (self.snapRad * self.globalsize)) * (self.snapRad * self.globalsize);
+                        } else {
+                            augmentedMouseX = self.mx;
+                            augmentedMouseY = self.my;
+                        }
                         list_append(self.components, (unitype) self.holding, 's');
                         list_append(self.groups, (unitype) -1, 'i');
-                        list_append(self.positions, (unitype) (self.mx / self.globalsize - self.screenX), 'd');
-                        list_append(self.positions, (unitype) (self.my / self.globalsize - self.screenY), 'd');
+                        list_append(self.positions, (unitype) (augmentedMouseX / self.globalsize - self.screenX), 'd');
+                        list_append(self.positions, (unitype) (augmentedMouseY / self.globalsize - self.screenY), 'd');
                         list_append(self.positions, (unitype) self.holdingAng, 'd');
                         list_append(self.io, (unitype) 0, 'i');
                         list_append(self.io, (unitype) 0, 'i');
@@ -2633,10 +2644,19 @@ void mouseTick(logicgates *selfp) {
                             self.holding = "a";
                         }
                     } else {
+                        double augmentedMouseX = 0;
+                        double augmentedMouseY = 0;
+                        if (self.gridMode) {
+                            augmentedMouseX = round(self.mx / (self.snapRad * self.globalsize)) * (self.snapRad * self.globalsize);
+                            augmentedMouseY = round(self.my / (self.snapRad * self.globalsize)) * (self.snapRad * self.globalsize);
+                        } else {
+                            augmentedMouseX = self.mx;
+                            augmentedMouseY = self.my;
+                        }
                         list_append(self.components, (unitype) self.holding, 's');
                         list_append(self.groups, (unitype) -1, 'i');
-                        list_append(self.positions, (unitype) (self.mx / self.globalsize - self.screenX), 'd');
-                        list_append(self.positions, (unitype) (self.my / self.globalsize - self.screenY), 'd');
+                        list_append(self.positions, (unitype) (augmentedMouseX / self.globalsize - self.screenX), 'd');
+                        list_append(self.positions, (unitype) (augmentedMouseY / self.globalsize - self.screenY), 'd');
                         list_append(self.positions, (unitype) self.holdingAng, 'd');
                         list_append(self.io, (unitype) 0, 'i');
                         list_append(self.io, (unitype) 0, 'i');
@@ -2648,8 +2668,8 @@ void mouseTick(logicgates *selfp) {
                         // update undo
                         addUndo(&self);
                     }
-                    self.focalX = self.mx;
-                    self.focalY = self.my;
+                    self.focalX = turtle.mouseX;
+                    self.focalY = turtle.mouseY;
                     self.focalCSX = self.screenX;
                     self.focalCSY = self.screenY;
                     if (!(self.selecting == 3) && !((self.keys[1] || self.wireHold == 1) && !(self.hlgcomp == 0))) {
@@ -2665,8 +2685,8 @@ void mouseTick(logicgates *selfp) {
                 if (self.my > 169) { // on ribbon
                     // printf("on ribbon\n");
                     self.mouseType = 3;
-                    self.focalX = self.mx;
-                    self.focalY = self.my;
+                    self.focalX = turtle.mouseX;
+                    self.focalY = turtle.mouseY;
                     self.focalCSX = self.screenX;
                     self.focalCSY = self.screenY;
                     self.selecting = 0;
@@ -2676,8 +2696,8 @@ void mouseTick(logicgates *selfp) {
                     self.symin = 0;
                 } else { // on sidebar
                     self.mouseType = 1;
-                    self.focalX = self.mx;
-                    self.focalY = self.my;
+                    self.focalX = turtle.mouseX;
+                    self.focalY = turtle.mouseY;
                     self.focalCSX = self.screenX;
                     self.focalCSY = self.screenY;
                     self.selecting = 0;
@@ -2787,8 +2807,8 @@ void mouseTick(logicgates *selfp) {
                         self.wiringEnd = self.hlgcomp;
                     } else {
                         if (strcmp(self.holding, "a") == 0) {
-                            self.screenX = (self.mx - self.focalX) / self.globalsize + self.focalCSX;
-                            self.screenY = (self.my - self.focalY) / self.globalsize + self.focalCSY;
+                            self.screenX = (turtle.mouseX - self.focalX) / self.globalsize + self.focalCSX;
+                            self.screenY = (turtle.mouseY - self.focalY) / self.globalsize + self.focalCSY;
                         }
                     }
                 } else {
@@ -2838,11 +2858,20 @@ void mouseTick(logicgates *selfp) {
         }
         if (self.mouseType == 2 && !(strcmp(self.holding, "a") == 0) && !(strcmp(self.holding, "b") == 0)) {
             self.mouseType = 0;
+            double augmentedMouseX = 0;
+            double augmentedMouseY = 0;
+            if (self.gridMode) {
+                augmentedMouseX = round(self.mx / (self.snapRad * self.globalsize)) * (self.snapRad * self.globalsize);
+                augmentedMouseY = round(self.my / (self.snapRad * self.globalsize)) * (self.snapRad * self.globalsize);
+            } else {
+                augmentedMouseX = self.mx;
+                augmentedMouseY = self.my;
+            }
             if (self.mx > self.boundXmin && self.mx < self.boundXmax && self.my > self.boundYmin && self.my < self.boundYmax) {
                 list_append(self.components, (unitype) self.holding, 's');
                 list_append(self.groups, (unitype) -1, 'i');
-                list_append(self.positions, (unitype) (self.mx / self.globalsize - self.screenX), 'd');
-                list_append(self.positions, (unitype) (self.my / self.globalsize - self.screenY), 'd');
+                list_append(self.positions, (unitype) (augmentedMouseX / self.globalsize - self.screenX), 'd');
+                list_append(self.positions, (unitype) (augmentedMouseY / self.globalsize - self.screenY), 'd');
                 list_append(self.positions, (unitype) self.holdingAng, 'd');
                 list_append(self.io, (unitype) 0, 'i');
                 list_append(self.io, (unitype) 0, 'i');
@@ -3258,7 +3287,7 @@ void hotkeyTick(logicgates *selfp) {
                 // ctrl+z
                 undo(&self);
             } else {
-                snapToGrid(&self, 8);
+                snapToGrid(&self, self.snapRad);
                 // update undo
                 addUndo(&self);
             }
@@ -3742,8 +3771,8 @@ void renderHoldingComponent(logicgates *selfp) {
     double compY = 0;
     turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
     if (self.gridMode) {
-        compX = round(self.mx / 8) * 8;
-        compY = round(self.my / 8) * 8;
+        compX = round(self.mx / (self.snapRad * (self.globalsize * 0.75))) * self.snapRad * (self.globalsize * 0.75);
+        compY = round(self.my / (self.snapRad * (self.globalsize * 0.75))) * self.snapRad * (self.globalsize * 0.75);
     } else {
         compX = self.mx;
         compY = self.my;
