@@ -16,6 +16,17 @@
 
 GLFWwindow* window; // global window
 
+enum texture {
+    TEXTURE_POWER = 1,
+    TEXTURE_NOT = 2,
+    TEXTURE_AND = 3,
+    TEXTURE_OR = 4,
+    TEXTURE_XOR = 5,
+    TEXTURE_NOR = 6,
+    TEXTURE_NAND = 7,
+    TEXTURE_BUFFER = 8
+};
+
 typedef struct { // all logicgates variables (shared state) are defined here
     double globalsize; // size multiplier - bigger means zoomed in
     double themeColors[55]; // rgb colour array, there are 9 colours, accross 2 themes each with 3 components for rgb
@@ -30,6 +41,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     char flashTicks; // when turning on debug mode, there's a white flash over the screen
     char showComponentIDOnHover; // if this is 1, hovering over a component shows you it's ID
     char gridMode; // if this is 1, components snap to grid when placing them
+    char textureMode; // if this is 1, textures are used for component rendering
     double snapRad; // how many pixels to align grid to
     double scrollSpeed; // how fast the scroll zooms in, I think it's a 1.15x
     double arrowScrollSpeed; // how fast the arrow keys zoom, 1.001x
@@ -155,6 +167,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.wxOffE = 0;
     self.wyOffE = 0;
     self.wireMode = 1;
+    self.textureMode = 0;
     self.screenX = 0;
     self.screenY = 0;
     self.sxmax = 0;
@@ -244,6 +257,111 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.defaultPrez = 5; // normal use doesn't need super precise circles
     self.specialPrez = 9; // in special cases such as the power block and ends of NOT blocks require more precise circles
     *selfp = self;
+}
+// initialise associated textures
+void textureInit(const char *filepath) {
+    /* 
+    Notes:
+    https://stackoverflow.com/questions/75976623/how-to-use-gl-texture-2d-array-for-binding-multiple-textures-as-array
+    https://stackoverflow.com/questions/72648980/opengl-sampler2d-array
+    */
+    int pathLen = strlen(filepath) + 32;
+    char filename[pathLen];
+    /* setup texture parameters */
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    unsigned int texturePower[8];
+    glGenTextures(8, texturePower);
+    for (int i = 0; i < 8; i++) {
+        glBindTexture(GL_TEXTURE_2D, texturePower[i]);
+    }
+    /* each of our images are 512 by 512 */
+    glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, 512, 512, 9, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+    int width;
+    int height;
+    int nbChannels;
+    unsigned char *imgData;
+    /* load POWER texture */
+    strcpy(filename, filepath);
+    strcat(filename, "POWERi.png");
+    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
+    if (imgData != NULL) {
+        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 1, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+    } else {
+        printf("Could not load texture: %s\n", filename);
+    }
+    stbi_image_free(imgData);
+    /* load NOT texture */
+    strcpy(filename, filepath);
+    strcat(filename, "NOTi.png");
+    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
+    if (imgData != NULL) {
+         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 2, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+    } else {
+        printf("Could not load texture: %s\n", filename);
+    }
+    /* load AND texture */
+    strcpy(filename, filepath);
+    strcat(filename, "ANDi.png");
+    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
+    if (imgData != NULL) {
+         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 3, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+    } else {
+        printf("Could not load texture: %s\n", filename);
+    }
+    /* load OR texture */
+    strcpy(filename, filepath);
+    strcat(filename, "ORi.png");
+    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
+    if (imgData != NULL) {
+         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 4, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+    } else {
+        printf("Could not load texture: %s\n", filename);
+    }
+    /* load XOR texture */
+    strcpy(filename, filepath);
+    strcat(filename, "XORi.png");
+    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
+    if (imgData != NULL) {
+         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 5, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+    } else {
+        printf("Could not load texture: %s\n", filename);
+    }
+    /* load NOR texture */
+    strcpy(filename, filepath);
+    strcat(filename, "NORi.png");
+    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
+    if (imgData != NULL) {
+         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 6, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+    } else {
+        printf("Could not load texture: %s\n", filename);
+    }
+    /* load NAND texture */
+    strcpy(filename, filepath);
+    strcat(filename, "NANDi.png");
+    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
+    if (imgData != NULL) {
+         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 7, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+    } else {
+        printf("Could not load texture: %s\n", filename);
+    }
+    stbi_image_free(imgData);
+    /* load BUFFER texture */
+    strcpy(filename, filepath);
+    strcat(filename, "BUFFERi.png");
+    imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
+    if (imgData != NULL) {
+         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 8, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+    } else {
+        printf("Could not load texture: %s\n", filename);
+    }
+    stbi_image_free(imgData);
+    glGenerateMipmap(GL_TEXTURE_2D_ARRAY);
 }
 // clears the canvas
 void clearAll(logicgates *selfp) {
@@ -416,269 +534,324 @@ void export(logicgates *selfp, const char *filename) {
 // draws a POWER component
 void POWER(logicgates *selfp, double x, double y, double size, double rot, char state, char select) {
     logicgates self = *selfp;
-    rot /= 57.2958; // convert to radians
-    turtleGoto(x, y);
-    turtlePenShape("circle");
-    turtlePenPrez(self.specialPrez);
-    turtlePenSize(size * 12.5 * self.scaling);
-    turtlePenDown();
-    turtlePenUp();
-    if (state == 2) {
-        turtlePenSize(size * 10 * self.scaling);
-        if (select == 1) {
-            turtlePenColor(self.themeColors[22 + self.theme], self.themeColors[23 + self.theme], self.themeColors[24 + self.theme]);
-        } else {
-            turtlePenColor(self.themeColors[19 + self.theme], self.themeColors[20 + self.theme], self.themeColors[21 + self.theme]);
-        }
+    if (self.textureMode == 0) {
+        // rot /= 57.2958; // convert to radians
+        turtleGoto(x, y);
+        turtlePenShape("circle");
+        turtlePenPrez(self.specialPrez);
+        turtlePenSize(size * 12.5 * self.scaling);
         turtlePenDown();
         turtlePenUp();
-        turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
-    }
-    if (state == 1) {
-        turtlePenSize(size * 10 * self.scaling);
-        if (select == 1) {
-            turtlePenColor(self.themeColors[10 + self.theme], self.themeColors[11 + self.theme], self.themeColors[12 + self.theme]);
-        } else {
-            turtlePenColor(self.themeColors[7 + self.theme], self.themeColors[8 + self.theme], self.themeColors[9 + self.theme]);
+        if (state == 2) {
+            turtlePenSize(size * 10 * self.scaling);
+            if (select == 1) {
+                turtlePenColor(self.themeColors[22 + self.theme], self.themeColors[23 + self.theme], self.themeColors[24 + self.theme]);
+            } else {
+                turtlePenColor(self.themeColors[19 + self.theme], self.themeColors[20 + self.theme], self.themeColors[21 + self.theme]);
+            }
+            turtlePenDown();
+            turtlePenUp();
+            turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
         }
-        turtlePenDown();
-        turtlePenUp();
-        turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+        if (state == 1) {
+            turtlePenSize(size * 10 * self.scaling);
+            if (select == 1) {
+                turtlePenColor(self.themeColors[10 + self.theme], self.themeColors[11 + self.theme], self.themeColors[12 + self.theme]);
+            } else {
+                turtlePenColor(self.themeColors[7 + self.theme], self.themeColors[8 + self.theme], self.themeColors[9 + self.theme]);
+            }
+            turtlePenDown();
+            turtlePenUp();
+            turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+        }
+        turtle.penshape = self.defaultShape;
+        turtlePenPrez(self.defaultPrez);
+    } else {
+        const double innerRadius = 5.8;
+        const double outerRadius = 7.1;
+        turtleTexture(TEXTURE_POWER, x - size * outerRadius * self.scaling, y - size * outerRadius * self.scaling, x + size * outerRadius * self.scaling, y + size * outerRadius * self.scaling, rot, turtle.penr * 255, turtle.peng * 255, turtle.penb * 255);
+        if (state == 2) {
+            if (select == 1) {
+                turtleTexture(TEXTURE_POWER, x - size * innerRadius * self.scaling, y - size * innerRadius * self.scaling, x + size * innerRadius * self.scaling, y + size * innerRadius * self.scaling, rot, self.themeColors[22 + self.theme], self.themeColors[23 + self.theme], self.themeColors[24 + self.theme]);
+            } else {
+                turtleTexture(TEXTURE_POWER, x - size * innerRadius * self.scaling, y - size * innerRadius * self.scaling, x + size * innerRadius * self.scaling, y + size * innerRadius * self.scaling, rot, self.themeColors[19 + self.theme], 236.0, self.themeColors[21 + self.theme]);
+            }
+        }
+        if (state == 1) {
+            if (select == 1) {
+                turtleTexture(TEXTURE_POWER, x - size * innerRadius * self.scaling, y - size * innerRadius * self.scaling, x + size * innerRadius * self.scaling, y + size * innerRadius * self.scaling, rot, self.themeColors[10 + self.theme], self.themeColors[11 + self.theme], self.themeColors[12 + self.theme]);
+            } else {
+                turtleTexture(TEXTURE_POWER, x - size * innerRadius * self.scaling, y - size * innerRadius * self.scaling, x + size * innerRadius * self.scaling, y + size * innerRadius * self.scaling, rot, self.themeColors[7 + self.theme], self.themeColors[8 + self.theme], self.themeColors[9 + self.theme]);
+            }
+        }
     }
-    turtle.penshape = self.defaultShape;
-    turtlePenPrez(self.defaultPrez);
 }
 // draws a NOT component
 void NOT(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
-    rot /= 57.2958; // convert to radians
-    double sinRot = sin(rot);
-    double cosRot = cos(rot);
-    turtlePenSize(size * self.scaling);
-    turtleGoto(x + (-11 * size * sinRot) - (11 * size * cosRot), y + (-11 * size * cosRot) + (11 * size * sinRot));
-    turtlePenDown();
-    turtleGoto(x + (7 * size * sinRot), y + (7 * size * cosRot));
-    turtleGoto(x + (-11 * size * sinRot) - (-11 * size * cosRot), y + (-11 * size * cosRot) + (-11 * size * sinRot));
-    turtleGoto(x + (-11 * size * sinRot) - (11 * size * cosRot), y + (-11 * size * cosRot) + (11 * size * sinRot));
-    turtlePenUp();
-    turtleGoto(x + (10 * size * sinRot), y + (10 * size * cosRot));
-    turtlePenShape("circle");
-    turtlePenPrez(self.specialPrez);
-    turtlePenSize(size * 3.5 * self.scaling);
-    turtlePenDown();
-    turtlePenUp();
-    turtlePenSize(size * 1.5 * self.scaling);
-    turtlePenColor(self.themeColors[25 + self.theme], self.themeColors[26 + self.theme], self.themeColors[27 + self.theme]);
-    turtlePenDown();
-    turtlePenUp();
-    turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
-    turtle.penshape = self.defaultShape;
-    turtlePenPrez(self.defaultPrez);
+    if (self.textureMode == 0) {
+        rot /= 57.2958; // convert to radians
+        double sinRot = sin(rot);
+        double cosRot = cos(rot);
+        turtlePenSize(size * self.scaling);
+        turtleGoto(x + (-11 * size * sinRot) - (11 * size * cosRot), y + (-11 * size * cosRot) + (11 * size * sinRot));
+        turtlePenDown();
+        turtleGoto(x + (7 * size * sinRot), y + (7 * size * cosRot));
+        turtleGoto(x + (-11 * size * sinRot) - (-11 * size * cosRot), y + (-11 * size * cosRot) + (-11 * size * sinRot));
+        turtleGoto(x + (-11 * size * sinRot) - (11 * size * cosRot), y + (-11 * size * cosRot) + (11 * size * sinRot));
+        turtlePenUp();
+        turtleGoto(x + (10 * size * sinRot), y + (10 * size * cosRot));
+        turtlePenShape("circle");
+        turtlePenPrez(self.specialPrez);
+        turtlePenSize(size * 3.5 * self.scaling);
+        turtlePenDown();
+        turtlePenUp();
+        turtlePenSize(size * 1.5 * self.scaling);
+        turtlePenColor(self.themeColors[25 + self.theme], self.themeColors[26 + self.theme], self.themeColors[27 + self.theme]);
+        turtlePenDown();
+        turtlePenUp();
+        turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+        turtle.penshape = self.defaultShape;
+        turtlePenPrez(self.defaultPrez);
+    } else {
+        const double textureScale = 7.1;
+        turtleTexture(TEXTURE_NOT, x - size * textureScale * self.scaling, y - size * textureScale * self.scaling, x + size * textureScale * self.scaling, y + size * textureScale * self.scaling, rot, turtle.penr * 255, turtle.peng * 255, turtle.penb * 255);
+    }
 }
 // draws an AND component
 void AND(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
-    rot /= 57.2958; // convert to radians
-    double sinRot = sin(rot);
-    double cosRot = cos(rot);
-    turtlePenSize(size * self.scaling);
-    turtleGoto(x + (-12 * size * sinRot) - (-9 * size * cosRot), y + (-12 * size * cosRot) + (-9 * size * sinRot));
-    turtlePenDown();
-    turtleGoto(x + (4 * size * sinRot) - (-9 * size * cosRot), y + (4 * size * cosRot) + (-9 * size * sinRot));
-    double i = 180;
-    for (int j = 0; j < self.graphPrez + 1; j++) {
-        double k = i / 57.2958;
-        turtleGoto(x + ((4 * size + sin(k) * 8 * size) * sinRot) - (cos(k) * 9 * size * cosRot), y + ((4 * size + sin(k) * 8 * size) * cosRot) + (cos(k) * 9 * size * sinRot));
-        i -= (180 / self.graphPrez);
+    if (self.textureMode == 0) {
+        rot /= 57.2958; // convert to radians
+        double sinRot = sin(rot);
+        double cosRot = cos(rot);
+        turtlePenSize(size * self.scaling);
+        turtleGoto(x + (-12 * size * sinRot) - (-9 * size * cosRot), y + (-12 * size * cosRot) + (-9 * size * sinRot));
+        turtlePenDown();
+        turtleGoto(x + (4 * size * sinRot) - (-9 * size * cosRot), y + (4 * size * cosRot) + (-9 * size * sinRot));
+        double i = 180;
+        for (int j = 0; j < self.graphPrez + 1; j++) {
+            double k = i / 57.2958;
+            turtleGoto(x + ((4 * size + sin(k) * 8 * size) * sinRot) - (cos(k) * 9 * size * cosRot), y + ((4 * size + sin(k) * 8 * size) * cosRot) + (cos(k) * 9 * size * sinRot));
+            i -= (180 / self.graphPrez);
+        }
+        turtleGoto(x + (-12 * size * sinRot) - (9 * size * cosRot), y + (-12 * size * cosRot) + (9 * size * sinRot));
+        turtleGoto(x + (-12 * size * sinRot) - (-9 * size * cosRot), y + (-12 * size * cosRot) + (-9 * size * sinRot));
+        turtlePenUp();
+    } else {
+        const double textureScale = 7.5;
+        turtleTexture(TEXTURE_AND, x - size * textureScale * self.scaling, y - size * textureScale * self.scaling, x + size * textureScale * self.scaling, y + size * textureScale * self.scaling, rot, turtle.penr * 255, turtle.peng * 255, turtle.penb * 255);
     }
-    turtleGoto(x + (-12 * size * sinRot) - (9 * size * cosRot), y + (-12 * size * cosRot) + (9 * size * sinRot));
-    turtleGoto(x + (-12 * size * sinRot) - (-9 * size * cosRot), y + (-12 * size * cosRot) + (-9 * size * sinRot));
-    turtlePenUp();
 }
 // draws an OR component
 void OR(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
-    rot /= 57.2958; // convert to radians
-    double sinRot = sin(rot);
-    double cosRot = cos(rot);
-    turtlePenSize(size * self.scaling);
-    turtleGoto(x + (-11 * size * sinRot) - (9 * size * cosRot), y + (-11 * size * cosRot) + (9 * size * sinRot));
-    turtlePenDown();
-    double k;
-    double i = 180;
-    for (int j = 0; j < self.graphPrez + 1; j++) {
-        k = i / 57.2958;
-        double tempX = x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot);
-        double tempY = y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot);
-        turtleGoto(tempX, tempY);
-        i -= (180 / self.graphPrez);
+    if (self.textureMode == 0) {
+        rot /= 57.2958; // convert to radians
+        double sinRot = sin(rot);
+        double cosRot = cos(rot);
+        turtlePenSize(size * self.scaling);
+        turtleGoto(x + (-11 * size * sinRot) - (9 * size * cosRot), y + (-11 * size * cosRot) + (9 * size * sinRot));
+        turtlePenDown();
+        double k;
+        double i = 180;
+        for (int j = 0; j < self.graphPrez + 1; j++) {
+            k = i / 57.2958;
+            double tempX = x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot);
+            double tempY = y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot);
+            turtleGoto(tempX, tempY);
+            i -= (180 / self.graphPrez);
+        }
+        i += (180 / self.graphPrez);
+        for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
+            k = i / 57.2958;
+            turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((9 * size - cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((9 * size - cos(k) * 18 * size) * sinRot));
+            i += (90 / self.graphPrez);
+        }
+        turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
+        turtlePenUp();
+        turtleGoto(x + (-11 * size * sinRot) - (9 * size * cosRot), y + (-11 * size * cosRot) + (9 * size * sinRot));
+        turtlePenDown();
+        i = 0;
+        for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
+            k = i / 57.2958;
+            turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((-9 * size + cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((-9 * size + cos(k) * 18 * size) * sinRot));
+            i += (90 / self.graphPrez);
+        }
+        turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
+        turtlePenUp();
+    } else {
+        const double textureScale = 6.9;
+        turtleTexture(TEXTURE_OR, x - size * textureScale * self.scaling, y - size * textureScale * self.scaling, x + size * textureScale * self.scaling, y + size * textureScale * self.scaling, rot, turtle.penr * 255, turtle.peng * 255, turtle.penb * 255);
     }
-    i += (180 / self.graphPrez);
-    for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
-        k = i / 57.2958;
-        turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((9 * size - cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((9 * size - cos(k) * 18 * size) * sinRot));
-        i += (90 / self.graphPrez);
-    }
-    turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
-    turtlePenUp();
-    turtleGoto(x + (-11 * size * sinRot) - (9 * size * cosRot), y + (-11 * size * cosRot) + (9 * size * sinRot));
-    turtlePenDown();
-    i = 0;
-    for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
-        k = i / 57.2958;
-        turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((-9 * size + cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((-9 * size + cos(k) * 18 * size) * sinRot));
-        i += (90 / self.graphPrez);
-    }
-    turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
-    turtlePenUp();
 }
 // draws an XOR component
 void XOR(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
-    rot /= 57.2958; // convert to radians
-    double sinRot = sin(rot);
-    double cosRot = cos(rot);
-    turtlePenSize(size * self.scaling);
-    double k;
-    double i = 180;
-    i -= 180 / self.graphPrez;
-    k = i / 57.2958;
-    turtleGoto(x + ((-15 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-15 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
-    turtlePenDown();
-    for (int j = 0; j < self.graphPrez - 1; j++) {
+    if (self.textureMode == 0) {
+        rot /= 57.2958; // convert to radians
+        double sinRot = sin(rot);
+        double cosRot = cos(rot);
+        turtlePenSize(size * self.scaling);
+        double k;
+        double i = 180;
+        i -= 180 / self.graphPrez;
         k = i / 57.2958;
         turtleGoto(x + ((-15 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-15 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
+        turtlePenDown();
+        for (int j = 0; j < self.graphPrez - 1; j++) {
+            k = i / 57.2958;
+            turtleGoto(x + ((-15 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-15 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
+            i -= 180 / self.graphPrez;
+        }
+        turtlePenUp();
+        i = 180;
         i -= 180 / self.graphPrez;
-    }
-    turtlePenUp();
-    i = 180;
-    i -= 180 / self.graphPrez;
-    k = i / 57.2958;
-    turtleGoto(x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
-    turtlePenDown();
-    for (int j = 0; j < self.graphPrez - 1; j++) {
         k = i / 57.2958;
         turtleGoto(x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
-        i -= (180 / self.graphPrez);
-    }
-    i += (180 / self.graphPrez);
-    for (int j = 0; j < (self.graphPrez - 2) / 1.5; j++) {
+        turtlePenDown();
+        for (int j = 0; j < self.graphPrez - 1; j++) {
+            k = i / 57.2958;
+            turtleGoto(x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
+            i -= (180 / self.graphPrez);
+        }
+        i += (180 / self.graphPrez);
+        for (int j = 0; j < (self.graphPrez - 2) / 1.5; j++) {
+            k = i / 57.2958;
+            turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((9 * size - cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((9 * size - cos(k) * 18 * size) * sinRot));
+            i += (90 / self.graphPrez);
+        }
+        turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
+        turtlePenUp();
+        i = 180;
+        i -= 180 / self.graphPrez;
         k = i / 57.2958;
-        turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((9 * size - cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((9 * size - cos(k) * 18 * size) * sinRot));
-        i += (90 / self.graphPrez);
+        turtleGoto(x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
+        turtlePenDown();
+        i = 0;
+        i += 180 / self.graphPrez;
+        for (int j = 0; j < (self.graphPrez - 2) / 1.5; j++) {
+            k = i / 57.2958;
+            turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((-9 * size + cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((-9 * size + cos(k) * 18 * size) * sinRot));
+            i += (90 / self.graphPrez);
+        }
+        turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
+        turtlePenUp();
+    } else {
+        const double textureScale = 7.5;
+        turtleTexture(TEXTURE_XOR, x - size * textureScale * self.scaling, y - size * textureScale * self.scaling, x + size * textureScale * self.scaling, y + size * textureScale * self.scaling, rot, turtle.penr * 255, turtle.peng * 255, turtle.penb * 255);
     }
-    turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
-    turtlePenUp();
-    i = 180;
-    i -= 180 / self.graphPrez;
-    k = i / 57.2958;
-    turtleGoto(x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
-    turtlePenDown();
-    i = 0;
-    i += 180 / self.graphPrez;
-    for (int j = 0; j < (self.graphPrez - 2) / 1.5; j++) {
-        k = i / 57.2958;
-        turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((-9 * size + cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((-9 * size + cos(k) * 18 * size) * sinRot));
-        i += (90 / self.graphPrez);
-    }
-    turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
-    turtlePenUp();
 }
 // draws a NOR component
 void NOR(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
-    rot /= 57.2958; // convert to radians
-    double sinRot = sin(rot);
-    double cosRot = cos(rot);
-    turtlePenSize(size * self.scaling);
-    turtleGoto(x + (-13 * size * sinRot) - (9 * size * cosRot), y + (-13 * size * cosRot) + (9 * size * sinRot));
-    turtlePenDown();
-    double k;
-    double i = 180;
-    for (int j = 0; j < self.graphPrez + 1; j++) {
-        k = i / 57.2958;
-        turtleGoto(x + ((-13 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-13 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
-        i -= (180 / self.graphPrez);
+    if (self.textureMode == 0) {
+        rot /= 57.2958; // convert to radians
+        double sinRot = sin(rot);
+        double cosRot = cos(rot);
+        turtlePenSize(size * self.scaling);
+        turtleGoto(x + (-13 * size * sinRot) - (9 * size * cosRot), y + (-13 * size * cosRot) + (9 * size * sinRot));
+        turtlePenDown();
+        double k;
+        double i = 180;
+        for (int j = 0; j < self.graphPrez + 1; j++) {
+            k = i / 57.2958;
+            turtleGoto(x + ((-13 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-13 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
+            i -= (180 / self.graphPrez);
+        }
+        i += (180 / self.graphPrez);
+        for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
+            k = i / 57.2958;
+            turtleGoto(x + ((-13 * size + sin(k) * 25 * size) * sinRot) - ((9 * size - cos(k) * 18 * size) * cosRot), y + ((-13 * size + sin(k) * 25 * size) * cosRot) + ((9 * size - cos(k) * 18 * size) * sinRot));
+            i += (90 / self.graphPrez);
+        }
+        turtleGoto(x + (8.3 * size * sinRot), y + (8.3 * size * cosRot));
+        turtlePenUp();
+        turtleGoto(x + (-13 * size * sinRot) - (9 * size * cosRot), y + (-13 * size * cosRot) + (9 * size * sinRot));
+        turtlePenDown();
+        i = 0;
+        for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
+            k = i / 57.2958;
+            turtleGoto(x + ((-13 * size + sin(k) * 25 * size) * sinRot) - ((-9 * size + cos(k) * 18 * size) * cosRot), y + ((-13 * size + sin(k) * 25 * size) * cosRot) + ((-9 * size + cos(k) * 18 * size) * sinRot));
+            i += (90 / self.graphPrez);
+        }
+        turtleGoto(x + (8.3 * size * sinRot), y + (8.3 * size * cosRot));
+        turtlePenUp();
+        turtleGoto(x + (11.5 * size * sinRot), y + (11.5 * size * cosRot));
+        turtlePenShape("circle");
+        turtlePenPrez(self.specialPrez);
+        turtlePenSize(size * 3.5 * self.scaling);
+        turtlePenDown();
+        turtlePenUp();
+        turtlePenSize(size * 1.5 * self.scaling);
+        turtlePenColor(self.themeColors[25 + self.theme], self.themeColors[26 + self.theme], self.themeColors[27 + self.theme]);
+        turtlePenDown();
+        turtlePenUp();
+        turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+        turtle.penshape = self.defaultShape;
+        turtlePenPrez(self.defaultPrez);
+    } else {
+        const double textureScale = 8;
+        turtleTexture(TEXTURE_NOR, x - size * textureScale * self.scaling, y - size * textureScale * self.scaling, x + size * textureScale * self.scaling, y + size * textureScale * self.scaling, rot, turtle.penr * 255, turtle.peng * 255, turtle.penb * 255);
     }
-    i += (180 / self.graphPrez);
-    for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
-        k = i / 57.2958;
-        turtleGoto(x + ((-13 * size + sin(k) * 25 * size) * sinRot) - ((9 * size - cos(k) * 18 * size) * cosRot), y + ((-13 * size + sin(k) * 25 * size) * cosRot) + ((9 * size - cos(k) * 18 * size) * sinRot));
-        i += (90 / self.graphPrez);
-    }
-    turtleGoto(x + (8.3 * size * sinRot), y + (8.3 * size * cosRot));
-    turtlePenUp();
-    turtleGoto(x + (-13 * size * sinRot) - (9 * size * cosRot), y + (-13 * size * cosRot) + (9 * size * sinRot));
-    turtlePenDown();
-    i = 0;
-    for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
-        k = i / 57.2958;
-        turtleGoto(x + ((-13 * size + sin(k) * 25 * size) * sinRot) - ((-9 * size + cos(k) * 18 * size) * cosRot), y + ((-13 * size + sin(k) * 25 * size) * cosRot) + ((-9 * size + cos(k) * 18 * size) * sinRot));
-        i += (90 / self.graphPrez);
-    }
-    turtleGoto(x + (8.3 * size * sinRot), y + (8.3 * size * cosRot));
-    turtlePenUp();
-    turtleGoto(x + (11.5 * size * sinRot), y + (11.5 * size * cosRot));
-    turtlePenShape("circle");
-    turtlePenPrez(self.specialPrez);
-    turtlePenSize(size * 3.5 * self.scaling);
-    turtlePenDown();
-    turtlePenUp();
-    turtlePenSize(size * 1.5 * self.scaling);
-    turtlePenColor(self.themeColors[25 + self.theme], self.themeColors[26 + self.theme], self.themeColors[27 + self.theme]);
-    turtlePenDown();
-    turtlePenUp();
-    turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
-    turtle.penshape = self.defaultShape;
-    turtlePenPrez(self.defaultPrez);
 }
 // draws a NAND component
 void NAND(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
-    rot /= 57.2958; // convert to radians
-    double sinRot = sin(rot);
-    double cosRot = cos(rot);
-    turtlePenSize(size * self.scaling);
-    turtleGoto(x + (-12 * size * sinRot) - (-9 * size * cosRot), y + (-12 * size * cosRot) + (-9 * size * sinRot));
-    turtlePenDown();
-    turtleGoto(x + (4 * size * sinRot) - (-9 * size * cosRot), y + (4 * size * cosRot) + (-9 * size * sinRot));
-    double k;
-    double i = 180;
-    for (int j = 0; j < self.graphPrez + 1; j++) {
-        k = i / 57.2958;
-        turtleGoto(x + ((4 * size + sin(k) * 8 * size) * sinRot) - (cos(k) * 9 * size * cosRot), y + ((4 * size + sin(k) * 8 * size) * cosRot) + (cos(k) * 9 * size * sinRot));
-        i -= (180 / self.graphPrez);
+    if (self.textureMode == 0) {
+        rot /= 57.2958; // convert to radians
+        double sinRot = sin(rot);
+        double cosRot = cos(rot);
+        turtlePenSize(size * self.scaling);
+        turtleGoto(x + (-12 * size * sinRot) - (-9 * size * cosRot), y + (-12 * size * cosRot) + (-9 * size * sinRot));
+        turtlePenDown();
+        turtleGoto(x + (4 * size * sinRot) - (-9 * size * cosRot), y + (4 * size * cosRot) + (-9 * size * sinRot));
+        double k;
+        double i = 180;
+        for (int j = 0; j < self.graphPrez + 1; j++) {
+            k = i / 57.2958;
+            turtleGoto(x + ((4 * size + sin(k) * 8 * size) * sinRot) - (cos(k) * 9 * size * cosRot), y + ((4 * size + sin(k) * 8 * size) * cosRot) + (cos(k) * 9 * size * sinRot));
+            i -= (180 / self.graphPrez);
+        }
+        turtleGoto(x + (-12 * size * sinRot) - (9 * size * cosRot), y + (-12 * size * cosRot) + (9 * size * sinRot));
+        turtleGoto(x + (-12 * size * sinRot) - (-9 * size * cosRot), y + (-12 * size * cosRot) + (-9 * size * sinRot));
+        turtlePenUp();
+        turtleGoto(x + (15 * size * sinRot), y + (15 * size * cosRot));
+        turtlePenShape("circle");
+        turtlePenPrez(self.specialPrez);
+        turtlePenSize(size * 3.5 * self.scaling);
+        turtlePenDown();
+        turtlePenUp();
+        turtlePenSize(size * 1.5 * self.scaling);
+        turtlePenColor(self.themeColors[25 + self.theme], self.themeColors[26 + self.theme], self.themeColors[27 + self.theme]);
+        turtlePenDown();
+        turtlePenUp();
+        turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+        turtle.penshape = self.defaultShape;
+        turtlePenPrez(self.defaultPrez);
+    } else {
+        const double textureScale = 8.2;
+        turtleTexture(TEXTURE_NAND, x - size * textureScale * self.scaling, y - size * textureScale * self.scaling, x + size * textureScale * self.scaling, y + size * textureScale * self.scaling, rot, turtle.penr * 255, turtle.peng * 255, turtle.penb * 255);
     }
-    turtleGoto(x + (-12 * size * sinRot) - (9 * size * cosRot), y + (-12 * size * cosRot) + (9 * size * sinRot));
-    turtleGoto(x + (-12 * size * sinRot) - (-9 * size * cosRot), y + (-12 * size * cosRot) + (-9 * size * sinRot));
-    turtlePenUp();
-    turtleGoto(x + (15 * size * sinRot), y + (15 * size * cosRot));
-    turtlePenShape("circle");
-    turtlePenPrez(self.specialPrez);
-    turtlePenSize(size * 3.5 * self.scaling);
-    turtlePenDown();
-    turtlePenUp();
-    turtlePenSize(size * 1.5 * self.scaling);
-    turtlePenColor(self.themeColors[25 + self.theme], self.themeColors[26 + self.theme], self.themeColors[27 + self.theme]);
-    turtlePenDown();
-    turtlePenUp();
-    turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
-    turtle.penshape = self.defaultShape;
-    turtlePenPrez(self.defaultPrez);
 }
 // draws a BUFFER component
 void BUFFER(logicgates *selfp, double x, double y, double size, double rot) {
     logicgates self = *selfp;
-    rot /= 57.2958; // convert to radians
-    double sinRot = sin(rot);
-    double cosRot = cos(rot);
-    turtlePenSize(size * self.scaling);
-    turtleGoto(x + (-8 * size * sinRot) - (11 * size * cosRot), y + (-8 * size * cosRot) + (11 * size * sinRot));
-    turtlePenDown();
-    turtleGoto(x + (10 * size * sinRot), y + (10 * size * cosRot));
-    turtleGoto(x + (-8 * size * sinRot) - (-11 * size * cosRot), y + (-8 * size * cosRot) + (-11 * size * sinRot));
-    turtleGoto(x + (-8 * size * sinRot) - (11 * size * cosRot), y + (-8 * size * cosRot) + (11 * size * sinRot));
-    turtlePenUp();
+    if (self.textureMode == 0) {
+        rot /= 57.2958; // convert to radians
+        double sinRot = sin(rot);
+        double cosRot = cos(rot);
+        turtlePenSize(size * self.scaling);
+        turtleGoto(x + (-8 * size * sinRot) - (11 * size * cosRot), y + (-8 * size * cosRot) + (11 * size * sinRot));
+        turtlePenDown();
+        turtleGoto(x + (10 * size * sinRot), y + (10 * size * cosRot));
+        turtleGoto(x + (-8 * size * sinRot) - (-11 * size * cosRot), y + (-8 * size * cosRot) + (-11 * size * sinRot));
+        turtleGoto(x + (-8 * size * sinRot) - (11 * size * cosRot), y + (-8 * size * cosRot) + (11 * size * sinRot));
+        turtlePenUp();
+    } else {
+        const double textureScale = 6.3;
+        turtleTexture(TEXTURE_BUFFER, x - size * textureScale * self.scaling, y - size * textureScale * self.scaling, x + size * textureScale * self.scaling, y + size * textureScale * self.scaling, rot, turtle.penr * 255, turtle.peng * 255, turtle.penb * 255);
+    }
 }
 // draws the wireSymbol on the sidebar
 void wireSymbol(logicgates *selfp, double x, double y, double size, double rot) {
@@ -3463,6 +3636,20 @@ void hotkeyTick(logicgates *selfp) {
             self.keys[29] = 0;
         }
     }
+    if (turtleKeyPressed(GLFW_KEY_B)) {
+        if (!self.keys[30]) {
+            self.keys[30] = 1;
+            if (self.textureMode == 0) {
+                self.textureMode = 1;
+            } else {
+                self.textureMode = 0;
+            }
+        }
+    } else {
+        if (self.keys[30]) {
+            self.keys[30] = 0;
+        }
+    }
     *selfp = self;
 }
 // all the scroll wheel functionality is handled here
@@ -3850,13 +4037,13 @@ int main(int argc, char *argv[]) {
     win32ToolsInit();
     win32FileDialogAddExtension("txt"); // add txt to extension restrictions
     win32FileDialogAddExtension("lg"); // add lg to extension restrictions
-    char constructedPath[MAX_PATH + 1];
+    char constructedPath[MAX_PATH + 1 + 32];
     #endif
     #ifdef OS_LINUX
     zenityFileDialogInit(argv[0]); // must include argv[0] to get executableFilepath
     zenityFileDialogAddExtension("txt"); // add txt to extension restrictions
     zenityFileDialogAddExtension("lg"); // add lg to extension restrictions
-    char constructedPath[4097];
+    char constructedPath[4097 + 32];
     #endif
 
     /* load logo */
@@ -3873,7 +4060,7 @@ int main(int argc, char *argv[]) {
     icon.pixels = iconPixels;
     glfwSetWindowIcon(window, 1, &icon);
 
-    /* initialize turtle */
+    /* initialise turtle */
     turtleInit(window, -240, -180, 240, 180);
     /* initialise textGL */
     #ifdef OS_WINDOWS
@@ -3902,6 +4089,15 @@ int main(int argc, char *argv[]) {
     #endif
     strcat(constructedPath, "include/popupConfig.txt");
     popupInit(constructedPath, -50, -20, 50, 20);
+    /* initialise textures */
+    #ifdef OS_WINDOWS
+    strcpy(constructedPath, win32FileDialog.executableFilepath);
+    #endif
+    #ifdef OS_LINUX
+    strcpy(constructedPath, zenityFileDialog.executableFilepath);
+    #endif
+    strcat(constructedPath, "textures/complete/");
+    textureInit(constructedPath);
     
     int tps = 60; // ticks per second (locked to fps in this case)
     clock_t start, end;

@@ -20,6 +20,9 @@ extern void glColor4d(double r, double g, double b, double a); // genius tactic 
 extern void glBegin(int type);
 extern void glVertex2d(double x, double y);
 extern void glEnd();
+void turtleTexture(int textureCode, double x1, double y1, double x2, double y2, double rot, double r, double g, double b) {
+    // No support for textures in turtle.h, use turtleTextures.h
+}
 
 typedef struct {
     GLFWwindow* window; // the window
@@ -87,6 +90,8 @@ void mouseSense(GLFWwindow* window, int button, int action, int mods) {
             case GLFW_MOUSE_BUTTON_MIDDLE:
             list_append(turtle.keyPressed, (unitype) "m3", 's');
             break;
+            default:
+            break;
         }
     }
     if (action == GLFW_RELEASE) {
@@ -99,6 +104,8 @@ void mouseSense(GLFWwindow* window, int button, int action, int mods) {
             break;
             case GLFW_MOUSE_BUTTON_MIDDLE:
             list_remove(turtle.keyPressed, (unitype) "m3", 's');
+            break;
+            default:
             break;
         }
     }
@@ -449,6 +456,28 @@ void turtleQuad(double x1, double y1, double x2, double y2, double x3, double y3
     list_append(turtle.penPos, (unitype) 67, 'h'); // blit quad signifier
     list_append(turtle.penPos, (unitype) y4, 'd');
 }
+// adds a (blit) rectangle to the pipeline (uses quad interface)
+void turtleRentangle(double x1, double y1, double x2, double y2, double r, double g, double b, double a) {
+    list_append(turtle.penPos, (unitype) x1, 'd');
+    list_append(turtle.penPos, (unitype) y1, 'd');
+    list_append(turtle.penPos, (unitype) x2, 'd');
+    list_append(turtle.penPos, (unitype) (r / 255), 'd');
+    list_append(turtle.penPos, (unitype) (g / 255), 'd');
+    list_append(turtle.penPos, (unitype) (b / 255), 'd');
+    list_append(turtle.penPos, (unitype) (a / 255), 'd');
+    list_append(turtle.penPos, (unitype) 67, 'h'); // blit quad signifier
+    list_append(turtle.penPos, (unitype) y1, 'd'); // some unconventional formatting but it works
+
+    list_append(turtle.penPos, (unitype) x2, 'd');
+    list_append(turtle.penPos, (unitype) y2, 'd');
+    list_append(turtle.penPos, (unitype) x1, 'd');
+    list_append(turtle.penPos, (unitype) r, 'd'); // duplicate colour data (wasted space)
+    list_append(turtle.penPos, (unitype) g, 'd');
+    list_append(turtle.penPos, (unitype) b, 'd');
+    list_append(turtle.penPos, (unitype) a, 'd');
+    list_append(turtle.penPos, (unitype) 67, 'h'); // blit quad signifier
+    list_append(turtle.penPos, (unitype) y2, 'd');
+}
 // draws the turtle's path on the screen
 void turtleUpdate() {
     // used to have a feature that only redrew the screen if there have been any changes from last frame, but it has been removed.
@@ -500,6 +529,8 @@ void turtleUpdate() {
                         lastPrez = ren[i + 8].d;
                         turtleCircleRender(ren[i].d, ren[i + 1].d, ren[i + 2].d, ren[i + 3].d, ren[i + 4].d, ren[i + 5].d, ren[i + 6].d, xfact, yfact, precomputedLog);
                     }
+                    break;
+                    default:
                     break;
                 }
                 if (i + 9 < len && renType[i + 9] == 'd' && ren[i + 7].h < 64 && (ren[i + 7].h == 4 || ren[i + 7].h == 5 || (fabs(ren[i].d - ren[i + 9].d) > ren[i + 2].d / 2 || fabs(ren[i + 1].d - ren[i + 10].d) > ren[i + 2].d / 2))) { // tests for next point continuity and also ensures that the next point is at sufficiently different coordinates

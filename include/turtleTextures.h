@@ -4,6 +4,7 @@ features:
 adjustable pen (size and colour)
 resizable window support
 keyboard and mouse presses
+texture support
 */
 
 #ifndef TURTLESET
@@ -16,6 +17,8 @@ keyboard and mouse presses
 #include "glfw3.h"
 #include "list.h"
 #include "bufferList.h"
+
+#define BUFFER_OBJECT_SIZE 9
 
 typedef struct {
     GLFWwindow* window; // the window
@@ -57,17 +60,29 @@ const char *turtleVertexShaderSource =
     "#version 330 core\n"
     "layout(location = 0) in vec2 vPosition;\n"
     "layout(location = 1) in vec4 vColor;\n"
+    "layout(location = 2) in vec3 textureCoordVert;\n"
     "out vec4 shadeColor;\n"
+    "out vec2 textureCoordFrag;\n"
+    "out float textureIndex;\n"
     "void main() {\n"
-    "   shadeColor = vColor;\n"
-    "   gl_Position = vec4(vPosition, 0.0, 1.0);\n"
+    "    shadeColor = vColor;\n"
+    "    gl_Position = vec4(vPosition, 0.0, 1.0);\n"
+    "    textureCoordFrag = textureCoordVert.xy;\n"
+    "    textureIndex = textureCoordVert.z;\n"
     "}\0";
 const char *turtleFragmentShaderSource = 
     "#version 330 core\n"
-    "out vec4 color;\n"
+    "uniform sampler2DArray textureImages;\n"
     "in vec4 shadeColor;\n;"
+    "in vec2 textureCoordFrag;\n"
+    "in float textureIndex;\n"
+    "out vec4 fragColor;\n"
     "void main() {\n"
-    "   color = shadeColor;\n"
+    "    if (textureIndex > 0.5) {\n"
+    "        fragColor = texture(textureImages, vec3(textureCoordFrag, textureIndex)) * shadeColor;\n"
+    "    } else {\n"
+    "        fragColor = shadeColor;\n"
+    "    }\n"
     "}\0";
 
 // run this to set the bounds of the window in coordinates
@@ -162,9 +177,11 @@ void turtleInit(GLFWwindow* window, int minX, int minY, int maxX, int maxY) {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *) 0); // position attribute
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * BUFFER_OBJECT_SIZE, (void *) 0); // position attribute
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void *) (2 * sizeof(float))); // color attribute
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(float) * BUFFER_OBJECT_SIZE, (void *) (2 * sizeof(float))); // color attribute
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(float) * BUFFER_OBJECT_SIZE, (void *) (6 * sizeof(float))); // texture coordinate attribute
 
     int vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &turtleVertexShaderSource, NULL);
@@ -204,7 +221,7 @@ void turtleInit(GLFWwindow* window, int minX, int minY, int maxX, int maxY) {
 
     glEnable(GL_ALPHA);
     glEnable(GL_BLEND);
-    glBlendFunc(GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glClearColor(1.0, 1.0, 1.0, 0.0); // white background by default
     turtle.window = window;
     turtle.close = 0;
@@ -223,7 +240,7 @@ void turtleInit(GLFWwindow* window, int minX, int minY, int maxX, int maxY) {
     turtle.penr = 0.0;
     turtle.peng = 0.0;
     turtle.penb = 0.0;
-    turtle.pena = 0.0;
+    turtle.pena = 1.0;
     for (int i = 0; i < 3; i++) {
         turtle.currentColor[i] = 0.0;
     }
@@ -259,14 +276,14 @@ void turtlePenColor(double r, double g, double b) {
     turtle.penr = r / 255;
     turtle.peng = g / 255;
     turtle.penb = b / 255;
-    turtle.pena = 0.0;
+    turtle.pena = 1.0;
 }
 // set the pen color (with transparency)
 void turtlePenColorAlpha(double r, double g, double b, double a) {
     turtle.penr = r / 255;
     turtle.peng = g / 255;
     turtle.penb = b / 255;
-    turtle.pena = a / 255;
+    turtle.pena = 1.0 - (a / 255);
 }
 void turtlePenSize(double size) {
     turtle.pensize = size * 0.5; // ensures pensize matches pixel size (a pen size of 240 will be 240 coordinates long)
@@ -387,6 +404,18 @@ void turtleGoto(double x, double y) {
         }
     }
 }
+// function to add a vertex to the turtle.bufferList
+void addVertex(double x, double y, double r, double g, double b, double a, double tx, double ty, double useTexture) {
+    bufferList_append(turtle.bufferList, x);
+    bufferList_append(turtle.bufferList, y);
+    bufferList_append(turtle.bufferList, r);
+    bufferList_append(turtle.bufferList, g);
+    bufferList_append(turtle.bufferList, b);
+    bufferList_append(turtle.bufferList, a);
+    bufferList_append(turtle.bufferList, tx);
+    bufferList_append(turtle.bufferList, ty);
+    bufferList_append(turtle.bufferList, useTexture);
+}
 // draws a circle at the specified x and y (coordinates)
 void turtleCircleRender(double x, double y, double rad, double r, double g, double b, double a, double xfact, double yfact, double prez) {
     int p = (int) prez;
@@ -394,108 +423,33 @@ void turtleCircleRender(double x, double y, double rad, double r, double g, doub
         // p--;
         float originX = x * xfact;
         float originY = (y + rad) * yfact;
-        bufferList_append(turtle.bufferList, originX);
-        bufferList_append(turtle.bufferList, originY);
-        bufferList_append(turtle.bufferList, r);
-        bufferList_append(turtle.bufferList, g);
-        bufferList_append(turtle.bufferList, b);
-        bufferList_append(turtle.bufferList, a);
-        bufferList_append(turtle.bufferList, (x + rad * sin(2 * 1 * M_PI / prez)) * xfact);
-        bufferList_append(turtle.bufferList, (y + rad * cos(2 * 1 * M_PI / prez)) * yfact);
-        bufferList_append(turtle.bufferList, r);
-        bufferList_append(turtle.bufferList, g);
-        bufferList_append(turtle.bufferList, b);
-        bufferList_append(turtle.bufferList, a);
+        addVertex(originX, originY, r, g, b, a, 0, 0, 0);
+        addVertex((x + rad * sin(2 * 1 * M_PI / prez)) * xfact, (y + rad * cos(2 * 1 * M_PI / prez)) * yfact, r, g, b, a, 0, 0, 0);
         int i = 0;
         for (; i < p; i++) {
-            bufferList_append(turtle.bufferList, (x + rad * sin(2 * i * M_PI / prez)) * xfact);
-            bufferList_append(turtle.bufferList, (y + rad * cos(2 * i * M_PI / prez)) * yfact);
-            bufferList_append(turtle.bufferList, r);
-            bufferList_append(turtle.bufferList, g);
-            bufferList_append(turtle.bufferList, b);
-            bufferList_append(turtle.bufferList, a);
-            bufferList_append(turtle.bufferList, originX);
-            bufferList_append(turtle.bufferList, originY);
-            bufferList_append(turtle.bufferList, r);
-            bufferList_append(turtle.bufferList, g);
-            bufferList_append(turtle.bufferList, b);
-            bufferList_append(turtle.bufferList, a);
-            bufferList_append(turtle.bufferList, turtle.bufferList -> data[turtle.bufferList -> length - 12]);
-            bufferList_append(turtle.bufferList, turtle.bufferList -> data[turtle.bufferList -> length - 12]);
-            bufferList_append(turtle.bufferList, r);
-            bufferList_append(turtle.bufferList, g);
-            bufferList_append(turtle.bufferList, b);
-            bufferList_append(turtle.bufferList, a);
+            addVertex((x + rad * sin(2 * i * M_PI / prez)) * xfact, (y + rad * cos(2 * i * M_PI / prez)) * yfact, r, g, b, a, 0, 0, 0);
+            addVertex(originX, originY, r, g, b, a, 0, 0, 0);
+            addVertex(turtle.bufferList -> data[turtle.bufferList -> length - BUFFER_OBJECT_SIZE * 2], turtle.bufferList -> data[turtle.bufferList -> length - BUFFER_OBJECT_SIZE * 2 + 1], r, g, b, a, 0, 0, 0);
         }
-        bufferList_append(turtle.bufferList, (x + rad * sin(2 * i * M_PI / prez)) * xfact);
-        bufferList_append(turtle.bufferList, (y + rad * cos(2 * i * M_PI / prez)) * yfact);
-        bufferList_append(turtle.bufferList, r);
-        bufferList_append(turtle.bufferList, g);
-        bufferList_append(turtle.bufferList, b);
-        bufferList_append(turtle.bufferList, a);
+        addVertex((x + rad * sin(2 * i * M_PI / prez)) * xfact, (y + rad * cos(2 * i * M_PI / prez)) * yfact, r, g, b, a, 0, 0, 0);
     }
 }
 // draws a square
 void turtleSquareRender(double x1, double y1, double x2, double y2, double r, double g, double b, double a, double xfact, double yfact) {
     // float square[24] = {x1 * xfact, y1 * yfact, r, g, b, a, x2 * xfact, y1 * yfact, r, g, b, a, x2 * xfact, y2 * yfact, r, g, b, a, x1 * xfact, y2 * yfact, r, g, b, a};
-    bufferList_append(turtle.bufferList, x1 * xfact);
-    bufferList_append(turtle.bufferList, y1 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
-    bufferList_append(turtle.bufferList, x2 * xfact);
-    bufferList_append(turtle.bufferList, y1 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
-    bufferList_append(turtle.bufferList, x2 * xfact);
-    bufferList_append(turtle.bufferList, y2 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
-    bufferList_append(turtle.bufferList, x1 * xfact);
-    bufferList_append(turtle.bufferList, y1 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
-    bufferList_append(turtle.bufferList, x2 * xfact);
-    bufferList_append(turtle.bufferList, y2 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
-    bufferList_append(turtle.bufferList, x1 * xfact);
-    bufferList_append(turtle.bufferList, y2 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
+    addVertex(x1 * xfact, y1 * yfact, r, g, b, a, 0, 0, 0);
+    addVertex(x2 * xfact, y1 * yfact, r, g, b, a, 0, 0, 0);
+    addVertex(x2 * xfact, y2 * yfact, r, g, b, a, 0, 0, 0);
+    addVertex(x1 * xfact, y1 * yfact, r, g, b, a, 0, 0, 0);
+    addVertex(x2 * xfact, y2 * yfact, r, g, b, a, 0, 0, 0);
+    addVertex(x1 * xfact, y2 * yfact, r, g, b, a, 0, 0, 0);
 }
 // draws a triangle
 void turtleTriangleRender(double x1, double y1, double x2, double y2, double x3, double y3, double r, double g, double b, double a, double xfact, double yfact) {
     // float triangle[18] = {x1 * xfact, y1 * yfact, r, g, b, a, x2 * xfact, y2 * yfact, r, g, b, a, x3 * xfact, y3 * yfact, r, g, b, a};
-    bufferList_append(turtle.bufferList, x1 * xfact);
-    bufferList_append(turtle.bufferList, y1 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
-    bufferList_append(turtle.bufferList, x2 * xfact);
-    bufferList_append(turtle.bufferList, y2 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
-    bufferList_append(turtle.bufferList, x3 * xfact);
-    bufferList_append(turtle.bufferList, y3 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
+    addVertex(x1 * xfact, y1 * yfact, r, g, b, a, 0, 0, 0);
+    addVertex(x2 * xfact, y2 * yfact, r, g, b, a, 0, 0, 0);
+    addVertex(x3 * xfact, y3 * yfact, r, g, b, a, 0, 0, 0);
 }
 // adds a (blit) triangle to the pipeline (for better speed)
 void turtleTriangle(double x1, double y1, double x2, double y2, double x3, double y3, double r, double g, double b, double a) {
@@ -505,7 +459,7 @@ void turtleTriangle(double x1, double y1, double x2, double y2, double x3, doubl
     list_append(turtle.penPos, (unitype) (r / 255), 'd');
     list_append(turtle.penPos, (unitype) (g / 255), 'd');
     list_append(turtle.penPos, (unitype) (b / 255), 'd');
-    list_append(turtle.penPos, (unitype) (a / 255), 'd');
+    list_append(turtle.penPos, (unitype) (1.0 - (a / 255)), 'd');
     list_append(turtle.penPos, (unitype) 66, 'h'); // blit triangle signifier
     list_append(turtle.penPos, (unitype) y2, 'd'); // some unconventional formatting but it works
 
@@ -521,42 +475,12 @@ void turtleTriangle(double x1, double y1, double x2, double y2, double x3, doubl
 }
 // draws a quadrilateral
 void turtleQuadRender(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4, double r, double g, double b, double a, double xfact, double yfact) {
-    bufferList_append(turtle.bufferList, x1 * xfact);
-    bufferList_append(turtle.bufferList, y1 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
-    bufferList_append(turtle.bufferList, x2 * xfact);
-    bufferList_append(turtle.bufferList, y2 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
-    bufferList_append(turtle.bufferList, x3 * xfact);
-    bufferList_append(turtle.bufferList, y3 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
-    bufferList_append(turtle.bufferList, x1 * xfact);
-    bufferList_append(turtle.bufferList, y1 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
-    bufferList_append(turtle.bufferList, x3 * xfact);
-    bufferList_append(turtle.bufferList, y3 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
-    bufferList_append(turtle.bufferList, x4 * xfact);
-    bufferList_append(turtle.bufferList, y4 * yfact);
-    bufferList_append(turtle.bufferList, r);
-    bufferList_append(turtle.bufferList, g);
-    bufferList_append(turtle.bufferList, b);
-    bufferList_append(turtle.bufferList, a);
+    addVertex(x1 * xfact, y1 * yfact, r, g, b, a, 0, 0, 0);
+    addVertex(x2 * xfact, y2 * yfact, r, g, b, a, 0, 0, 0);
+    addVertex(x3 * xfact, y3 * yfact, r, g, b, a, 0, 0, 0);
+    addVertex(x1 * xfact, y1 * yfact, r, g, b, a, 0, 0, 0);
+    addVertex(x3 * xfact, y3 * yfact, r, g, b, a, 0, 0, 0);
+    addVertex(x4 * xfact, y4 * yfact, r, g, b, a, 0, 0, 0);
 }
 // adds a (blit) quad to the pipeline (for better speed)
 void turtleQuad(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4, double r, double g, double b, double a) {
@@ -566,7 +490,7 @@ void turtleQuad(double x1, double y1, double x2, double y2, double x3, double y3
     list_append(turtle.penPos, (unitype) (r / 255), 'd');
     list_append(turtle.penPos, (unitype) (g / 255), 'd');
     list_append(turtle.penPos, (unitype) (b / 255), 'd');
-    list_append(turtle.penPos, (unitype) (a / 255), 'd');
+    list_append(turtle.penPos, (unitype) (1.0 - (a / 255)), 'd');
     list_append(turtle.penPos, (unitype) 67, 'h'); // blit quad signifier
     list_append(turtle.penPos, (unitype) y2, 'd'); // some unconventional formatting but it works
 
@@ -588,7 +512,7 @@ void turtleRentangle(double x1, double y1, double x2, double y2, double r, doubl
     list_append(turtle.penPos, (unitype) (r / 255), 'd');
     list_append(turtle.penPos, (unitype) (g / 255), 'd');
     list_append(turtle.penPos, (unitype) (b / 255), 'd');
-    list_append(turtle.penPos, (unitype) (a / 255), 'd');
+    list_append(turtle.penPos, (unitype) (1.0 - (a / 255)), 'd');
     list_append(turtle.penPos, (unitype) 67, 'h'); // blit quad signifier
     list_append(turtle.penPos, (unitype) y1, 'd'); // some unconventional formatting but it works
 
@@ -601,6 +525,43 @@ void turtleRentangle(double x1, double y1, double x2, double y2, double r, doubl
     list_append(turtle.penPos, (unitype) a, 'd');
     list_append(turtle.penPos, (unitype) 67, 'h'); // blit quad signifier
     list_append(turtle.penPos, (unitype) y2, 'd');
+}
+void turtleTextureRender(int textureCode, double x1, double y1, double x2, double y2, double r, double g, double b, double rot, double xfact, double yfact) {
+    /* do the rotation math here - rotate on center */
+    double avgX = (x1 + x2) / 2;
+    double avgY = (y1 + y2) / 2;
+    double sinRot = sin(rot);
+    double cosRot = cos(rot);
+    double x1Displace = x1 - avgX;
+    double y1Displace = y1 - avgY;
+    double x2Displace = x2 - avgX;
+    double y2Displace = y2 - avgY;
+    x1 = avgX + x1Displace * sinRot - y1Displace * cosRot;
+    y1 = avgY + x1Displace * cosRot + y1Displace * sinRot;
+    x2 = avgX + x2Displace * sinRot - y2Displace * cosRot;
+    y2 = avgY + x2Displace * cosRot + y2Displace * sinRot;
+    double x3 = avgX + x2Displace * sinRot - y1Displace * cosRot;
+    double y3 = avgY + x2Displace * cosRot + y1Displace * sinRot;
+    double x4 = avgX + x1Displace * sinRot - y2Displace * cosRot;
+    double y4 = avgY + x1Displace * cosRot + y2Displace * sinRot;
+    addVertex(x1 * xfact, y1 * yfact, r, g, b, 1.0, 0, 0, textureCode);
+    addVertex(x3 * xfact, y3 * yfact, r, g, b, 1.0, 1, 0, textureCode);
+    addVertex(x2 * xfact, y2 * yfact, r, g, b, 1.0, 1, 1, textureCode);
+    addVertex(x1 * xfact, y1 * yfact, r, g, b, 1.0, 0, 0, textureCode);
+    addVertex(x4 * xfact, y4 * yfact, r, g, b, 1.0, 0, 1, textureCode);
+    addVertex(x2 * xfact, y2 * yfact, r, g, b, 1.0, 1, 1, textureCode);
+}
+// adds a (blit) rectangular texture
+void turtleTexture(int textureCode, double x1, double y1, double x2, double y2, double rot, double r, double g, double b) {
+    list_append(turtle.penPos, (unitype) x1, 'd');
+    list_append(turtle.penPos, (unitype) y1, 'd');
+    list_append(turtle.penPos, (unitype) x2, 'd');
+    list_append(turtle.penPos, (unitype) y2, 'd');
+    list_append(turtle.penPos, (unitype) rot, 'd'); // rotation (degrees, bearing)
+    list_append(turtle.penPos, (unitype) (r / 255), 'd');
+    list_append(turtle.penPos, (unitype) (g / 255), 'd');
+    list_append(turtle.penPos, (unitype) (128 + textureCode), 'h'); // blit texture signifier + texture code - limited to 32639 textures
+    list_append(turtle.penPos, (unitype) (b / 255), 'd');
 }
 // draws the turtle's path on the screen
 void turtleUpdate() {
@@ -694,11 +655,15 @@ void turtleUpdate() {
                     turtleQuadRender(ren[i].d, ren[i + 1].d, ren[i + 2].d, ren[i + 8].d, ren[i + 9].d, ren[i + 10].d, ren[i + 11].d, ren[i + 17].d, ren[i + 3].d, ren[i + 4].d, ren[i + 5].d, ren[i + 6].d, xfact, yfact);
                     i += 9;
                 }
+                if (ren[i + 7].h >= 128) { // blit texture (rectangle)
+                    turtleTextureRender(ren[i + 7].h - 128, ren[i].d, ren[i + 1].d, ren[i + 2].d, ren[i + 3].d, ren[i + 5].d, ren[i + 6].d, ren[i + 8].d, ren[i + 4].d / 57.2958, xfact, yfact);
+                }
             }
         }
+        // printf("len: %d\n", turtle.bufferList -> length / BUFFER_OBJECT_SIZE); // print number of triangles
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glBufferData(GL_ARRAY_BUFFER, sizeof(float) * turtle.bufferList -> length, turtle.bufferList -> data, GL_STATIC_DRAW);
-        glDrawArrays(GL_TRIANGLES, 0, turtle.bufferList -> length / 6);
+        glDrawArrays(GL_TRIANGLES, 0, turtle.bufferList -> length / BUFFER_OBJECT_SIZE);
         glfwSwapBuffers(turtle.window);
     }
     glfwPollEvents();
