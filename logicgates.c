@@ -4096,7 +4096,7 @@ int main(int argc, char *argv[]) {
     #ifdef OS_LINUX
     strcpy(constructedPath, zenityFileDialog.executableFilepath);
     #endif
-    strcat(constructedPath, "textures/complete/");
+    strcat(constructedPath, "textures/");
     textureInit(constructedPath);
     
     int tps = 60; // ticks per second (locked to fps in this case)
