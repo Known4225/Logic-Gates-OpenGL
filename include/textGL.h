@@ -2,9 +2,11 @@
 
 #ifndef TEXTGLSET
 #define TEXTGLSET 1 // include guard
-// #include "turtle.h"
-// #include "turtleCustomShaders.h"
-#include "turtleTextures.h"
+#ifdef OPENGL1
+#include "turtle.h"
+#else
+// #include "turtleTextures.h"
+#endif
 
 typedef struct { // textGL variables
     int bezierPrez; // precision for bezier curves

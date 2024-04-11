@@ -166,6 +166,12 @@ char turtleMouseMid() {
 void turtleInit(GLFWwindow* window, int minX, int minY, int maxX, int maxY) {
     // gladLoadGL(); // fixed pipeline
     glfwMakeContextCurrent(window); // various glfw things
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        printf("could not initialise glad\n");
+    }
+    if (glGenVertexArrays == NULL) {
+        printf("couldn't load openGL\n");
+    }
 
     /* set up shaders */
     unsigned int VAO;

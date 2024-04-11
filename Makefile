@@ -8,5 +8,9 @@ winrel:
 	gcc logicgates.c -L./Windows -lglfw3 -lopengl32 -lgdi32 -lglad -lole32 -luuid -DOS_WINDOWS -O3 -o logicgates.exe
 val:
 	gcc logicgates.c -L./Linux -lglfw3 -ldl -lm -lX11 -lglad -lGL -lGLU -lpthread -g -DOS_LINUX -o logicgates.o
+chrome:
+	gcc logicgates.c -L./Linux -lglfw3 -ldl -lm -lX11 -lglad -lGL -lGLU -lpthread -DOS_LINUX -DOPENGL1 -o logicgates.o
+chromerel:
+	gcc logicgates.c -L./Linux -lglfw3 -ldl -lm -lX11 -lglad -lGL -lGLU -lpthread -DOS_LINUX -DOPENGL1 -O3 -o logicgates.o
 clean:
 	rm logicgates.o

@@ -4030,7 +4030,6 @@ int main(int argc, char *argv[]) {
     }
     glfwMakeContextCurrent(window);
     glfwSetWindowSizeLimits(window, GLFW_DONT_CARE, GLFW_DONT_CARE, windowHeight * 4 / 3, windowHeight);
-    gladLoadGL();
 
     /* initialise FileDialog */
     #ifdef OS_WINDOWS
@@ -4096,8 +4095,10 @@ int main(int argc, char *argv[]) {
     #ifdef OS_LINUX
     strcpy(constructedPath, zenityFileDialog.executableFilepath);
     #endif
+    #ifndef OPENGL1
     strcat(constructedPath, "textures/");
     textureInit(constructedPath);
+    #endif
     
     int tps = 60; // ticks per second (locked to fps in this case)
     clock_t start, end;
