@@ -48,6 +48,7 @@ keybind shortcuts to make building circuits faster.
 * shift + t - toggle theme (dark/light)
 * z - snap to grid
 * p - correct wiring
+* b - toggle texture mode
 * ctrl + c - copy
 * ctrl + x - cut
 * ctrl + v - paste
