@@ -5,7 +5,7 @@
 #include "include/ribbon.h"
 #include "include/popup.h"
 #ifdef OS_WINDOWS
-#include "include/win32Tools.h"
+#include "include/win32tools.h"
 #endif
 #ifdef OS_LINUX
 #include "include/zenityFileDialog.h"
