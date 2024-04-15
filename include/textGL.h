@@ -5,7 +5,7 @@
 #ifdef OPENGL1
 #include "turtle.h"
 #else
-// #include "turtleTextures.h"
+#include "turtleTextures.h"
 #endif
 
 typedef struct { // textGL variables
