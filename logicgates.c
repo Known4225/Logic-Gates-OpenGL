@@ -567,8 +567,8 @@ void POWER(logicgates *selfp, double x, double y, double size, double rot, char 
         turtle.penshape = self.defaultShape;
         turtlePenPrez(self.defaultPrez);
     } else {
-        const double innerRadius = 5.8;
-        const double outerRadius = 7.1;
+        const double innerRadius = 5.9;
+        const double outerRadius = 7.2;
         turtleTexture(TEXTURE_POWER, x - size * outerRadius * self.scaling, y - size * outerRadius * self.scaling, x + size * outerRadius * self.scaling, y + size * outerRadius * self.scaling, rot, turtle.penr * 255, turtle.peng * 255, turtle.penb * 255);
         if (state == 2) {
             if (select == 1) {

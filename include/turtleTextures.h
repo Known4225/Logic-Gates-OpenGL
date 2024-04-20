@@ -65,8 +65,8 @@ const char *turtleVertexShaderSource =
     "out vec2 textureCoordFrag;\n"
     "out float textureIndex;\n"
     "void main() {\n"
-    "    shadeColor = vColor;\n"
     "    gl_Position = vec4(vPosition, 0.0, 1.0);\n"
+    "    shadeColor = vColor;\n"
     "    textureCoordFrag = textureCoordVert.xy;\n"
     "    textureIndex = textureCoordVert.z;\n"
     "}\0";
