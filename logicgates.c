@@ -4113,10 +4113,10 @@ int main(int argc, char *argv[]) {
             } else {
                 import(&self, argv[i]);
                 #ifdef OS_WINDOWS
-                strcpy(win32FileDialog.selectedFilename, argv[1]);
+                strcpy(win32FileDialog.selectedFilename, argv[i]);
                 #endif
                 #ifdef OS_LINUX
-                strcpy(zenityFileDialog.selectedFilename, argv[1]);
+                strcpy(zenityFileDialog.selectedFilename, argv[i]);
                 #endif
             }
         }
