@@ -55,7 +55,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     double boundXmax; // bound for mx
     double boundYmax; // bound for my
     double scaling; // idk
-    double graphPrez; /* how many segments are drawn in the bezier curves used to construct gates with curves, 
+    double bezierPrez; /* how many segments are drawn in the bezier curves used to construct gates with curves, 
     this should scale with the zoom level but actually i don't think it does that. I should add that */
     char *holding; // oh god
     double holdingAng; // idk
@@ -113,7 +113,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     double defaultPrez; // having to do with the circle triangle precision
     double specialPrez; // having to do with special cases where more circle precision is necessary
 } logicgates;
-void init(logicgates *selfp, char megaOptimisations) { // initialises the logicgates variabes (shared state)
+void init(logicgates *selfp) { // initialises the logicgates variabes (shared state)
     logicgates self = *selfp;
     self.showComponentIDOnHover = 0; // unused (for now)
     self.gridMode = 0; // unfinished, should not be difficult to do just time consuming
@@ -159,11 +159,7 @@ void init(logicgates *selfp, char megaOptimisations) { // initialises the logicg
     self.my = 0;
     self.scaling = 2;
     self.sidebar = 1;
-    if (megaOptimisations) {
-        self.graphPrez = 3;
-    } else {
-        self.graphPrez = 12;
-    }
+    self.bezierPrez = 12;
     self.holding = "a"; // in hindsight this should have been an int
     self.holdingAng = 90;
     self.indicators = 1;
@@ -257,11 +253,7 @@ void init(logicgates *selfp, char megaOptimisations) { // initialises the logicg
     self.debugUndoIndex = 0;
     self.sinRot = 0;
     self.cosRot = 0;
-    if (megaOptimisations) {
-        self.defaultShape = 3; // 0 for circle (pretty), 3 for none (fastest), basically 0 is prettiest 3 is fastest, everything between is a spectrum
-    } else {
-        self.defaultShape = 0;
-    }
+    self.defaultShape = 0; // 0 for circle (pretty), 3 for none (fastest), basically 0 is prettiest 3 is fastest, everything between is a spectrum
     self.defaultPrez = 5; // normal use doesn't need super precise circles
     self.specialPrez = 9; // in special cases such as the power block and ends of NOT blocks require more precise circles
     *selfp = self;
@@ -638,10 +630,10 @@ void AND(logicgates *selfp, double x, double y, double size, double rot) {
         turtlePenDown();
         turtleGoto(x + (4 * size * sinRot) - (-9 * size * cosRot), y + (4 * size * cosRot) + (-9 * size * sinRot));
         double i = 180;
-        for (int j = 0; j < self.graphPrez + 1; j++) {
+        for (int j = 0; j < self.bezierPrez + 1; j++) {
             double k = i / 57.2958;
             turtleGoto(x + ((4 * size + sin(k) * 8 * size) * sinRot) - (cos(k) * 9 * size * cosRot), y + ((4 * size + sin(k) * 8 * size) * cosRot) + (cos(k) * 9 * size * sinRot));
-            i -= (180 / self.graphPrez);
+            i -= (180 / self.bezierPrez);
         }
         turtleGoto(x + (-12 * size * sinRot) - (9 * size * cosRot), y + (-12 * size * cosRot) + (9 * size * sinRot));
         turtleGoto(x + (-12 * size * sinRot) - (-9 * size * cosRot), y + (-12 * size * cosRot) + (-9 * size * sinRot));
@@ -663,28 +655,28 @@ void OR(logicgates *selfp, double x, double y, double size, double rot) {
         turtlePenDown();
         double k;
         double i = 180;
-        for (int j = 0; j < self.graphPrez + 1; j++) {
+        for (int j = 0; j < self.bezierPrez + 1; j++) {
             k = i / 57.2958;
             double tempX = x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot);
             double tempY = y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot);
             turtleGoto(tempX, tempY);
-            i -= (180 / self.graphPrez);
+            i -= (180 / self.bezierPrez);
         }
-        i += (180 / self.graphPrez);
-        for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
+        i += (180 / self.bezierPrez);
+        for (int j = 0; j < (self.bezierPrez + 1) / 1.5; j++) {
             k = i / 57.2958;
             turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((9 * size - cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((9 * size - cos(k) * 18 * size) * sinRot));
-            i += (90 / self.graphPrez);
+            i += (90 / self.bezierPrez);
         }
         turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
         turtlePenUp();
         turtleGoto(x + (-11 * size * sinRot) - (9 * size * cosRot), y + (-11 * size * cosRot) + (9 * size * sinRot));
         turtlePenDown();
         i = 0;
-        for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
+        for (int j = 0; j < (self.bezierPrez + 1) / 1.5; j++) {
             k = i / 57.2958;
             turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((-9 * size + cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((-9 * size + cos(k) * 18 * size) * sinRot));
-            i += (90 / self.graphPrez);
+            i += (90 / self.bezierPrez);
         }
         turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
         turtlePenUp();
@@ -703,45 +695,45 @@ void XOR(logicgates *selfp, double x, double y, double size, double rot) {
         turtlePenSize(size * self.scaling);
         double k;
         double i = 180;
-        i -= 180 / self.graphPrez;
+        i -= 180 / self.bezierPrez;
         k = i / 57.2958;
         turtleGoto(x + ((-15 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-15 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
         turtlePenDown();
-        for (int j = 0; j < self.graphPrez - 1; j++) {
+        for (int j = 0; j < self.bezierPrez - 1; j++) {
             k = i / 57.2958;
             turtleGoto(x + ((-15 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-15 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
-            i -= 180 / self.graphPrez;
+            i -= 180 / self.bezierPrez;
         }
         turtlePenUp();
         i = 180;
-        i -= 180 / self.graphPrez;
+        i -= 180 / self.bezierPrez;
         k = i / 57.2958;
         turtleGoto(x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
         turtlePenDown();
-        for (int j = 0; j < self.graphPrez - 1; j++) {
+        for (int j = 0; j < self.bezierPrez - 1; j++) {
             k = i / 57.2958;
             turtleGoto(x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
-            i -= (180 / self.graphPrez);
+            i -= (180 / self.bezierPrez);
         }
-        i += (180 / self.graphPrez);
-        for (int j = 0; j < (self.graphPrez - 2) / 1.5; j++) {
+        i += (180 / self.bezierPrez);
+        for (int j = 0; j < (self.bezierPrez - 2) / 1.5; j++) {
             k = i / 57.2958;
             turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((9 * size - cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((9 * size - cos(k) * 18 * size) * sinRot));
-            i += (90 / self.graphPrez);
+            i += (90 / self.bezierPrez);
         }
         turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
         turtlePenUp();
         i = 180;
-        i -= 180 / self.graphPrez;
+        i -= 180 / self.bezierPrez;
         k = i / 57.2958;
         turtleGoto(x + ((-11 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-11 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
         turtlePenDown();
         i = 0;
-        i += 180 / self.graphPrez;
-        for (int j = 0; j < (self.graphPrez - 2) / 1.5; j++) {
+        i += 180 / self.bezierPrez;
+        for (int j = 0; j < (self.bezierPrez - 2) / 1.5; j++) {
             k = i / 57.2958;
             turtleGoto(x + ((-11 * size + sin(k) * 25 * size) * sinRot) - ((-9 * size + cos(k) * 18 * size) * cosRot), y + ((-11 * size + sin(k) * 25 * size) * cosRot) + ((-9 * size + cos(k) * 18 * size) * sinRot));
-            i += (90 / self.graphPrez);
+            i += (90 / self.bezierPrez);
         }
         turtleGoto(x + (10.3 * size * sinRot), y + (10.3 * size * cosRot));
         turtlePenUp();
@@ -762,26 +754,26 @@ void NOR(logicgates *selfp, double x, double y, double size, double rot) {
         turtlePenDown();
         double k;
         double i = 180;
-        for (int j = 0; j < self.graphPrez + 1; j++) {
+        for (int j = 0; j < self.bezierPrez + 1; j++) {
             k = i / 57.2958;
             turtleGoto(x + ((-13 * size + sin(k) * 5 * size) * sinRot) - (cos(k) * -9 * size * cosRot), y + ((-13 * size + sin(k) * 5 * size) * cosRot) + (cos(k) * -9 * size * sinRot));
-            i -= (180 / self.graphPrez);
+            i -= (180 / self.bezierPrez);
         }
-        i += (180 / self.graphPrez);
-        for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
+        i += (180 / self.bezierPrez);
+        for (int j = 0; j < (self.bezierPrez + 1) / 1.5; j++) {
             k = i / 57.2958;
             turtleGoto(x + ((-13 * size + sin(k) * 25 * size) * sinRot) - ((9 * size - cos(k) * 18 * size) * cosRot), y + ((-13 * size + sin(k) * 25 * size) * cosRot) + ((9 * size - cos(k) * 18 * size) * sinRot));
-            i += (90 / self.graphPrez);
+            i += (90 / self.bezierPrez);
         }
         turtleGoto(x + (8.3 * size * sinRot), y + (8.3 * size * cosRot));
         turtlePenUp();
         turtleGoto(x + (-13 * size * sinRot) - (9 * size * cosRot), y + (-13 * size * cosRot) + (9 * size * sinRot));
         turtlePenDown();
         i = 0;
-        for (int j = 0; j < (self.graphPrez + 1) / 1.5; j++) {
+        for (int j = 0; j < (self.bezierPrez + 1) / 1.5; j++) {
             k = i / 57.2958;
             turtleGoto(x + ((-13 * size + sin(k) * 25 * size) * sinRot) - ((-9 * size + cos(k) * 18 * size) * cosRot), y + ((-13 * size + sin(k) * 25 * size) * cosRot) + ((-9 * size + cos(k) * 18 * size) * sinRot));
-            i += (90 / self.graphPrez);
+            i += (90 / self.bezierPrez);
         }
         turtleGoto(x + (8.3 * size * sinRot), y + (8.3 * size * cosRot));
         turtlePenUp();
@@ -816,10 +808,10 @@ void NAND(logicgates *selfp, double x, double y, double size, double rot) {
         turtleGoto(x + (4 * size * sinRot) - (-9 * size * cosRot), y + (4 * size * cosRot) + (-9 * size * sinRot));
         double k;
         double i = 180;
-        for (int j = 0; j < self.graphPrez + 1; j++) {
+        for (int j = 0; j < self.bezierPrez + 1; j++) {
             k = i / 57.2958;
             turtleGoto(x + ((4 * size + sin(k) * 8 * size) * sinRot) - (cos(k) * 9 * size * cosRot), y + ((4 * size + sin(k) * 8 * size) * cosRot) + (cos(k) * 9 * size * sinRot));
-            i -= (180 / self.graphPrez);
+            i -= (180 / self.bezierPrez);
         }
         turtleGoto(x + (-12 * size * sinRot) - (9 * size * cosRot), y + (-12 * size * cosRot) + (9 * size * sinRot));
         turtleGoto(x + (-12 * size * sinRot) - (-9 * size * cosRot), y + (-12 * size * cosRot) + (-9 * size * sinRot));
@@ -4111,19 +4103,26 @@ int main(int argc, char *argv[]) {
     int tps = 60; // ticks per second (locked to fps in this case)
     clock_t start, end;
     logicgates self;
-    init(&self, 0); // initialise the logicgates
+    init(&self); // initialise the logicgates
+    if (argc > 1) {
+        for (int i = 1; i < argc; i++) {
+            if (strcmp(argv[i], "-O") == 0 || strcmp(argv[i], "-o") == 0) {
+                /* enable mega optimisations */
+                self.bezierPrez = 3;
+                self.defaultShape = 3;
+            } else {
+                import(&self, argv[i]);
+                #ifdef OS_WINDOWS
+                strcpy(win32FileDialog.selectedFilename, argv[1]);
+                #endif
+                #ifdef OS_LINUX
+                strcpy(zenityFileDialog.selectedFilename, argv[1]);
+                #endif
+            }
+        }
+    }
     turtle.penshape = self.defaultShape; // set the shape
     turtlePenPrez(self.defaultPrez); // set the prez
-
-    if (argc > 1) {
-        import(&self, argv[1]);
-        #ifdef OS_WINDOWS
-        strcpy(win32FileDialog.selectedFilename, argv[1]);
-        #endif
-        #ifdef OS_LINUX
-        strcpy(zenityFileDialog.selectedFilename, argv[1]);
-        #endif
-    }
     // update undo
     addUndo(&self);
     self.saved = 1;
