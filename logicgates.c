@@ -113,7 +113,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     double defaultPrez; // having to do with the circle triangle precision
     double specialPrez; // having to do with special cases where more circle precision is necessary
 } logicgates;
-void init(logicgates *selfp) { // initialises the logicgates variabes (shared state)
+void init(logicgates *selfp, char megaOptimisations) { // initialises the logicgates variabes (shared state)
     logicgates self = *selfp;
     self.showComponentIDOnHover = 0; // unused (for now)
     self.gridMode = 0; // unfinished, should not be difficult to do just time consuming
@@ -159,7 +159,11 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.my = 0;
     self.scaling = 2;
     self.sidebar = 1;
-    self.graphPrez = 12;
+    if (megaOptimisations) {
+        self.graphPrez = 3;
+    } else {
+        self.graphPrez = 12;
+    }
     self.holding = "a"; // in hindsight this should have been an int
     self.holdingAng = 90;
     self.indicators = 1;
@@ -253,7 +257,11 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.debugUndoIndex = 0;
     self.sinRot = 0;
     self.cosRot = 0;
-    self.defaultShape = 0; // 0 for circle (pretty), 3 for none (fastest), basically 0 is prettiest 3 is fastest, everything between is a spectrum
+    if (megaOptimisations) {
+        self.defaultShape = 3; // 0 for circle (pretty), 3 for none (fastest), basically 0 is prettiest 3 is fastest, everything between is a spectrum
+    } else {
+        self.defaultShape = 0;
+    }
     self.defaultPrez = 5; // normal use doesn't need super precise circles
     self.specialPrez = 9; // in special cases such as the power block and ends of NOT blocks require more precise circles
     *selfp = self;
@@ -4103,7 +4111,7 @@ int main(int argc, char *argv[]) {
     int tps = 60; // ticks per second (locked to fps in this case)
     clock_t start, end;
     logicgates self;
-    init(&self); // initialise the logicgates
+    init(&self, 0); // initialise the logicgates
     turtle.penshape = self.defaultShape; // set the shape
     turtlePenPrez(self.defaultPrez); // set the prez
 

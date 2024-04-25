@@ -93,6 +93,7 @@ But I want consistent behaviour, so I have to think of something to do about thi
 * The P key also attempts to fix any rifts between wire rendering and internal processing. Think of it like pressing Ctrl + L in gdb tui
 
 ### Personal Feature Request:
+ - Make it so when you drag a wire from a powered component the wire is the powered colour (should be easy)
  - Grid mode
  - Grouped units "summonable" (without having to save and add file)
  - Multiple tabs
