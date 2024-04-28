@@ -1,3 +1,5 @@
+Details for the file: ComputerMk1.lg
+
 Specs:
 Four 8-bit registers
 Eight bytes of program (Read only) memory

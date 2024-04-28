@@ -1,0 +1,11 @@
+Details for the file: ComputerMk2.lg
+
+Specs:
+16-bit instruction length
+Eight 16-bit registers
+64 Bytes of memory (no distinction between program and addressable memory)
+6-bit program counter (counts up by two)
+Little-Endian
+
+
+Instruction Set:

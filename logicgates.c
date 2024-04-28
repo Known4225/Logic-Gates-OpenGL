@@ -3640,8 +3640,10 @@ void hotkeyTick(logicgates *selfp) {
         if (!self.keys[30]) {
             self.keys[30] = 1;
             if (self.textureMode == 0) {
+                printf("number of triangles (no textures): %d\n", turtle.bufferList -> length / BUFFER_OBJECT_SIZE);
                 self.textureMode = 1;
             } else {
+                printf("number of triangles (textures): %d\n", turtle.bufferList -> length / BUFFER_OBJECT_SIZE);
                 self.textureMode = 0;
             }
         }
