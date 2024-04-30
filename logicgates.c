@@ -3636,6 +3636,7 @@ void hotkeyTick(logicgates *selfp) {
             self.keys[29] = 0;
         }
     }
+    #ifndef OPENGL1
     if (turtleKeyPressed(GLFW_KEY_B)) {
         if (!self.keys[30]) {
             self.keys[30] = 1;
@@ -3652,6 +3653,7 @@ void hotkeyTick(logicgates *selfp) {
             self.keys[30] = 0;
         }
     }
+    #endif
     *selfp = self;
 }
 // all the scroll wheel functionality is handled here
