@@ -7,5 +7,26 @@ Eight 16-bit registers
 6-bit program counter (counts up by two)
 Little-Endian
 
+MIPS16ALU:
+000 - AND
+001 - OR
+010 - XOR
+011 - NOR
+100 - NAND
+101 - ADD
+110 - SUB
+111 - CMP (a >= b)
+
+
 
 Instruction Set:
+addi - 
+
+
+
+
+
+Eventual extension:
+https://www.ijtsrd.com/papers/ijtsrd53897.pdf
+
+A multiplier
