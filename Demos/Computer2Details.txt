@@ -36,10 +36,10 @@ addi(inp1, out, constant) - 00100 {000} {001} {10001}
 subi(inp1, out, constant) - 00101 {000} {001} {00100}
 
 load(out, src, offset) - 01000 {000} {001}
-load(out, address) - 01001 {000} {000001} 00
+load(out, address) - 01001 {000} {00000001}
 load(out, constant) - 01010 {000} {00110110}
 save(out, src, offset) - 01011 {000} {001}
-save(out, address) - 01100 {000} {000001} 00
+save(out, address) - 01100 {000} {00000001}
 save(out, constant) - 01101 {000} {00110110}
 
 load_to_digit_display(inp1, offset) - 01100 {000} {00000000}
@@ -52,8 +52,8 @@ load_to_matrix_display(inp1, control) - 01101 {000} {000000} 11 // loads bottom 
    Also the second bit 00010 controls a mass update. Where registers inp1, inp1 + 1, inp1 + 2, and inp1 + 3 are loaded in all at once
 */
 
-jump(constant) - 10000 {10100111010}
-jump(jmpto) - 10001 {000} 00000000
+jump(constant) - 10000 {101001} 00000
+jump(jmpto) - 10000 {000} 00000001
 
 jump_if_equal(inp1, inp2, jmpto) - 10010 {000} {001} {010} 00
 jump_if_not_equal(inp1, inp2, jmpto) - 10010 {000} {001} {010} 01
@@ -70,5 +70,6 @@ jump_if_less_or_equal(inp1, inp2, jmpto) - 10011 {000} {001} {010} 11
 
 Eventual extension:
 https://www.ijtsrd.com/papers/ijtsrd53897.pdf
-
 A multiplier
+
+FPU when?
