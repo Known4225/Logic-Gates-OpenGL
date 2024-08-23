@@ -3,9 +3,8 @@ Details for the file: ComputerMk2.lg
 Specs:
 16-bit instruction length
 Eight 16-bit registers
-64 Bytes of memory (no distinction between program and addressable memory)
-6-bit program counter (counts up by two)
-Little-Endian
+64 Bytes of 16-bit memory (no distinction between program and addressable memory)
+6-bit program counter
 
 MIPS16ALU implementation on the ComputerMk2:
 0000 - ADD
@@ -35,12 +34,11 @@ shr(inp1) - 00011 {000} 00000001
 addi(inp1, out, constant) - 00100 {000} {001} {10001}
 subi(inp1, out, constant) - 00101 {000} {001} {00100}
 
-load(out, src, offset) - 01000 {000} {001}
+load(out, src, offset) - 01000 {000} {001} {00100}
 load(out, address) - 01001 {000} {00000001}
 load(out, constant) - 01010 {000} {00110110}
-save(out, src, offset) - 01011 {000} {001}
-save(out, address) - 01100 {000} {00000001}
-save(out, constant) - 01101 {000} {00110110}
+save(in, src, addressregister) - 01011 {000} {001} 00000
+save(in, address) - 01100 {000} {00000001}
 
 load_to_digit_display(inp1, offset) - 01100 {000} {00000000}
 
@@ -52,7 +50,7 @@ load_to_matrix_display(inp1, control) - 01101 {000} {000000} 11 // loads bottom 
    Also the second bit 00010 controls a mass update. Where registers inp1, inp1 + 1, inp1 + 2, and inp1 + 3 are loaded in all at once
 */
 
-jump(constant) - 10000 {101001} 00000
+jump(constant) - 10000 {10100100} 000
 jump(jmpto) - 10000 {000} 00000001
 
 jump_if_equal(inp1, inp2, jmpto) - 10010 {000} {001} {010} 00
