@@ -40,12 +40,12 @@ load(out, constant) - 01010 {000} {00110110}
 save(in, src, addressregister) - 01011 {000} {001} 00000
 save(in, address) - 01100 {000} {00000001}
 
-load_to_digit_display(inp1, offset) - 01100 {000} {00000000}
+load_to_digit_display(inp1, offset) - 01101 {000} {00000000}
 
-load_to_matrix_display(inp1, control) - 01101 {000} {000000} 00 // loads to top two rows
-load_to_matrix_display(inp1, control) - 01101 {000} {000000} 01 // loads top middle two rows
-load_to_matrix_display(inp1, control) - 01101 {000} {000000} 10 // loads bottom middle two rows
-load_to_matrix_display(inp1, control) - 01101 {000} {000000} 11 // loads bottom two roads
+load_to_matrix_display(inp1, control) - 01110 {000} {000000} 00 // loads to top two rows
+load_to_matrix_display(inp1, control) - 01110 {000} {000000} 01 // loads top middle two rows
+load_to_matrix_display(inp1, control) - 01110 {000} {000000} 10 // loads bottom middle two rows
+load_to_matrix_display(inp1, control) - 01110 {000} {000000} 11 // loads bottom two roads
 /* Note: control code is either 00000 (update matrix immediately) or 00001 (don't update matrix).
    Also the second bit 00010 controls a mass update. Where registers inp1, inp1 + 1, inp1 + 2, and inp1 + 3 are loaded in all at once
 */
