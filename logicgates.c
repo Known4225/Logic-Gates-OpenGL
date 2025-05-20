@@ -301,7 +301,7 @@ void textureInit(const char *filepath) {
     strcat(filename, "NOTi.png");
     imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
     if (imgData != NULL) {
-         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 2, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 2, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
     } else {
         printf("Could not load texture: %s\n", filename);
     }
@@ -310,7 +310,7 @@ void textureInit(const char *filepath) {
     strcat(filename, "ANDi.png");
     imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
     if (imgData != NULL) {
-         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 3, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 3, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
     } else {
         printf("Could not load texture: %s\n", filename);
     }
@@ -319,7 +319,7 @@ void textureInit(const char *filepath) {
     strcat(filename, "ORi.png");
     imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
     if (imgData != NULL) {
-         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 4, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 4, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
     } else {
         printf("Could not load texture: %s\n", filename);
     }
@@ -328,7 +328,7 @@ void textureInit(const char *filepath) {
     strcat(filename, "XORi.png");
     imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
     if (imgData != NULL) {
-         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 5, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 5, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
     } else {
         printf("Could not load texture: %s\n", filename);
     }
@@ -337,7 +337,7 @@ void textureInit(const char *filepath) {
     strcat(filename, "NORi.png");
     imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
     if (imgData != NULL) {
-         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 6, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 6, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
     } else {
         printf("Could not load texture: %s\n", filename);
     }
@@ -346,7 +346,7 @@ void textureInit(const char *filepath) {
     strcat(filename, "NANDi.png");
     imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
     if (imgData != NULL) {
-         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 7, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 7, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
     } else {
         printf("Could not load texture: %s\n", filename);
     }
@@ -356,7 +356,7 @@ void textureInit(const char *filepath) {
     strcat(filename, "BUFFERi.png");
     imgData = stbi_load(filename, &width, &height, &nbChannels, 0);
     if (imgData != NULL) {
-         glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 8, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
+        glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, 8, width, height, 1, GL_RGBA, GL_UNSIGNED_BYTE, imgData);
     } else {
         printf("Could not load texture: %s\n", filename);
     }
