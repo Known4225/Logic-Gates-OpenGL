@@ -1,5 +1,9 @@
 # Logic Gates
 
+![adder](images/adder.png)
+
+![computerMk1](images/computerMk1.png)
+
 ### Compile (windows 64 bit):
 gcc logicgates.c -L./Windows -lglfw3 -lopengl32 -lgdi32 -lglad -lole32 -luuid -DOS_WINDOWS -o logicgates.exe\
 Then run logicgates.exe\
