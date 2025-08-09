@@ -577,16 +577,17 @@ void turtleUpdate() {
     int len = turtle.penPos -> length;
     unitype *ren = turtle.penPos -> data;
     char *renType = turtle.penPos -> type;
-    unsigned long long oldHash = turtle.penHash;
-    turtle.penHash = 0; // I don't use this but it's an idea: https://stackoverflow.com/questions/57455444/very-low-collision-non-cryptographic-hashing-function
-    for (int i = 0; i < len; i++) {
-        turtle.penHash += (unsigned long long) turtle.penPos -> data[i].p; // simple addition hash. I know not technically safe since i cast all sizes to 8 byte, but it should still work
-    }
+    // unsigned long long oldHash = turtle.penHash;
+    // turtle.penHash = 0; // I don't use this but it's an idea: https://stackoverflow.com/questions/57455444/very-low-collision-non-cryptographic-hashing-function
+    // for (int i = 0; i < len; i++) {
+    //     turtle.penHash += (unsigned long long) turtle.penPos -> data[i].p; // simple addition hash. I know not technically safe since i cast all sizes to 8 byte, but it should still work
+    // }
     // printf("%lld %lld\n", oldHash, turtle.penHash);
-    if (len != turtle.lastLength || oldHash != turtle.penHash) {
-        changed = 1;
-        turtle.lastLength = len;
-    }
+    // if (len != turtle.lastLength || oldHash != turtle.penHash) {
+    //     changed = 1;
+    //     turtle.lastLength = len;
+    // }
+    changed = 1;
     if (changed) {
         turtle.bufferList -> length = 0;
         double xfact = (turtle.bounds[2] - turtle.bounds[0]) / 2;
