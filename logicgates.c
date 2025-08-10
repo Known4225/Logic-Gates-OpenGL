@@ -4136,7 +4136,7 @@ int main(int argc, char *argv[]) {
     textureInit(constructedPath);
     #endif
     
-    int tps = 60; // ticks per second (locked to fps in this case)
+    int tps = 120; // ticks per second (locked to fps in this case)
     clock_t start, end;
     logicgates self;
     init(&self); // initialise the logicgates
