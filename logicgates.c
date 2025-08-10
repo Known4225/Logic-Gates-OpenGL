@@ -94,6 +94,7 @@ typedef struct { // all logicgates variables (shared state) are defined here
     list_t *groups; // list of group data (1 element per component, integer represents group ID, -1 is no group. IDs start at 1. 0 is not used)
     list_t *positions; // list of component positions (3 items for each component, doubles specifying x, y, and angle)
     list_t *io; // list of binary inputs and outputs of a component (3 items for each component, 2 inputs followed by the output of the component (either a 0 or 1))
+    list_t *ioCopy;
     list_t *inpComp; // list of component ID inputs, 3 items per component, format: number of possible inputs (either 1 or 2), input 1 (ID, 0 or less if none), input 2 (ID, 0 or less if none)
     list_t *wiring; // list of component connections (3 items per connection, it goes sender (ID), reciever (ID), powered (0 or 1))
     
@@ -145,9 +146,10 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     };
     memcpy(self.themeColors, themes, sizeof(self.themeColors));
     self.theme = 27;
-    if (self.theme == 27) // for testing dark mode default
+    if (self.theme == 27) { // for testing dark mode default
         ribbonDarkTheme();
         popupDarkTheme();
+    }
     turtleBgColor(self.themeColors[25 + self.theme], self.themeColors[26 + self.theme], self.themeColors[27 + self.theme]);
     self.flashTicks = 0;
     self.debugTick = 0;
@@ -227,6 +229,7 @@ void init(logicgates *selfp) { // initialises the logicgates variabes (shared st
     self.wiring = list_init();
     list_append(self.wiring, (unitype) 'n', 'c');
     
+    self.ioCopy = list_init();
 
     for (int i = 0; i < 32; i++) {
         self.keys[i] = 0;
@@ -2451,32 +2454,41 @@ void compareAng(logicgates *selfp, int index1, int index2, int comp1, int comp2,
     */
     *selfp = self;
 }
+
 void wireIO(logicgates *selfp, int index1, int index2) { // this script actually performs the logic of the logic gates, this will update the output of a gate given its two inputs
     logicgates self = *selfp;
-    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "POWER") == 0) // if I didn't use strings this could be a switch statement, in fact not using strings would have lots of performance benefits but I also don't care
-        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (self.io -> data[self.wiring -> data[index1].i * 3 - 2].i || self.io -> data[self.wiring -> data[index1].i * 3 - 1].i);
+    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "POWER") == 0) { // if I didn't use strings this could be a switch statement, in fact not using strings would have lots of performance benefits but I also don't care
+        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 2].i || self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 1].i);
+    }
     if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "BUFFER") == 0) {
         // need to ensure this can't happen multiple times per tick, so I use the last inpComp as a flag (since buffer only has one input)
-        if (self.inpComp -> data[self.wiring -> data[index1].i * 3].i == -1) {
-            self.io -> data[self.wiring -> data[index1].i * 3] = self.io -> data[self.wiring -> data[index1].i * 3 - 1]; // pipe
-            self.io -> data[self.wiring -> data[index1].i * 3 - 1] = self.io -> data[self.wiring -> data[index1].i * 3 - 2]; // pipe
-            self.inpComp -> data[self.wiring -> data[index1].i * 3].i = 0; // set flag UP (0 is UP because -1 is reset, for... reasons)
-        }
+        // if (self.inpComp -> data[self.wiring -> data[index1].i * 3].i == -1) {
+        //     self.io -> data[self.wiring -> data[index1].i * 3] = self.io -> data[self.wiring -> data[index1].i * 3 - 1]; // pipe
+        //     self.io -> data[self.wiring -> data[index1].i * 3 - 1] = self.io -> data[self.wiring -> data[index1].i * 3 - 2]; // pipe
+        //     self.inpComp -> data[self.wiring -> data[index1].i * 3].i = 0; // set flag UP (0 is UP because -1 is reset, for... reasons)
+        // }
+        self.io -> data[self.wiring -> data[index1].i * 3] = self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 2];
     }
 
-    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "NOT") == 0)
-        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (!self.io -> data[self.wiring -> data[index1].i * 3 - 2].i);
-    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "AND") == 0)
-        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (self.io -> data[self.wiring -> data[index1].i * 3 - 2].i && self.io -> data[self.wiring -> data[index1].i * 3 - 1].i);
-    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "OR") == 0)
-        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (self.io -> data[self.wiring -> data[index1].i * 3 - 2].i || self.io -> data[self.wiring -> data[index1].i * 3 - 1].i);
-    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "XOR") == 0)
-        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) abs(self.io -> data[self.wiring -> data[index1].i * 3 - 2].i - self.io -> data[self.wiring -> data[index1].i * 3 - 1].i);
-    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "NOR") == 0)
-        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (!(self.io -> data[self.wiring -> data[index1].i * 3 - 2].i || self.io -> data[self.wiring -> data[index1].i * 3 - 1].i));
-    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "NAND") == 0)
-        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (!(self.io -> data[self.wiring -> data[index1].i * 3 - 2].i && self.io -> data[self.wiring -> data[index1].i * 3 - 1].i));
-    self.wiring -> data[index1 + 2] = self.io -> data[self.wiring -> data[index1].i * 3];
+    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "NOT") == 0) {
+        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (!self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 2].i);
+    }
+    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "AND") == 0) {
+        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 2].i && self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 1].i);
+    }
+    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "OR") == 0) {
+        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 2].i || self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 1].i);
+    }
+    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "XOR") == 0) {
+        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) abs(self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 2].i - self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 1].i);
+    }
+    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "NOR") == 0) {
+        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (!(self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 2].i || self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 1].i));
+    }
+    if (strcmp(self.components -> data[self.wiring -> data[index1].i].s, "NAND") == 0) {
+        self.io -> data[self.wiring -> data[index1].i * 3] = (unitype) (!(self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 2].i && self.ioCopy -> data[self.wiring -> data[index1].i * 3 - 1].i));
+    }
+    // self.wiring -> data[index1 + 2] = self.io -> data[self.wiring -> data[index1].i * 3];
 
     // set inputs of connected components to output of this one
     if (self.inpComp -> data[self.wiring -> data[index2].i * 3 - 1].i == self.wiring -> data[index1].i) {
@@ -2491,10 +2503,8 @@ void wireIO(logicgates *selfp, int index1, int index2) { // this script actually
         // set input2
         self.io -> data[self.wiring -> data[index1 + 1].i * 3 - 1] = self.io -> data[self.wiring -> data[index1].i * 3];
     }
-    
-    
-    
 }
+
 void wireAngle(logicgates *selfp, int index1, int index2) {
     logicgates self = *selfp;
     if (self.compSlots -> data[list_find(self.compSlots, self.components -> data[self.wiring -> data[index2].i], 's') + 1].i == 2) {
@@ -2521,6 +2531,7 @@ void wireAngle(logicgates *selfp, int index1, int index2) {
     }
     *selfp = self;
 }
+
 void renderComp(logicgates *selfp) { // this function renders all the components in the window
     logicgates self = *selfp;
     turtle.penshape = self.defaultShape;
@@ -2597,6 +2608,7 @@ void renderWire(logicgates *selfp, double size) { // this function renders all t
     self.globalsize *= 0.75; // um just resizing no big deal
     turtlePenSize(size * self.scaling);
     int len = self.wiring -> length - 1;
+    list_copy(self.io, self.ioCopy);
     for (int i = 1; i < len; i += 3) {
         if (self.debugMode == 0 || self.debugTick == 1) {
             wireIO(&self, i, i + 1); // it was, in hindsight, a bad idea to do logic in the render function, but i guess it's fine
@@ -2607,15 +2619,17 @@ void renderWire(logicgates *selfp, double size) { // this function renders all t
             double wireTYS = (self.positions -> data[self.wiring -> data[i].i * 3 - 1].d + self.screenY) * self.globalsize;
             turtleGoto(wireTXS, wireTYS);
             if (self.wiring -> data[i + 2].i == 1) {
-                if (list_count(self.selectOb, self.wiring -> data[i], 'i') > 0 || list_count(self.selectOb, self.wiring -> data[i + 1], 'i') > 0 || list_count(self.selected, self.wiring -> data[i], 'i') > 0 || list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0)
+                if (list_count(self.selectOb, self.wiring -> data[i], 'i') > 0 || list_count(self.selectOb, self.wiring -> data[i + 1], 'i') > 0 || list_count(self.selected, self.wiring -> data[i], 'i') > 0 || list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0) {
                     turtlePenColor(self.themeColors[10 + self.theme], self.themeColors[11 + self.theme], self.themeColors[12 + self.theme]);
-                else
+                } else {
                     turtlePenColor(self.themeColors[7 + self.theme], self.themeColors[8 + self.theme], self.themeColors[9 + self.theme]);
+                }
             } else {
-                if (list_count(self.selectOb, self.wiring -> data[i], 'i') > 0 || list_count(self.selectOb, self.wiring -> data[i + 1], 'i') > 0 || list_count(self.selected, self.wiring -> data[i], 'i') > 0 || list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0)
+                if (list_count(self.selectOb, self.wiring -> data[i], 'i') > 0 || list_count(self.selectOb, self.wiring -> data[i + 1], 'i') > 0 || list_count(self.selected, self.wiring -> data[i], 'i') > 0 || list_count(self.selected, self.wiring -> data[i + 1], 'i') > 0) {
                     turtlePenColor(self.themeColors[4 + self.theme], self.themeColors[5 + self.theme], self.themeColors[6 + self.theme]);
-                else
+                } else {
                     turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+                }
             }
             turtlePenDown();
             wireTXS += sin((self.positions -> data[self.wiring -> data[i].i * 3].d) / 57.2958) * 22.5 * self.globalsize;
@@ -2625,16 +2639,21 @@ void renderWire(logicgates *selfp, double size) { // this function renders all t
             double wireTXE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 2].d + self.screenX) * self.globalsize - (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE); // x position of destination component
             double wireTYE = (self.positions -> data[self.wiring -> data[i + 1].i * 3 - 1].d + self.screenY) * self.globalsize - (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE); // y position of destination component
             double distance = (wireTXE - wireTXS) * sin(wireRot) + (wireTYE - wireTYS) * cos(wireRot);
-            if (self.wireMode == 0)
+            if (self.wireMode == 0) {
                 turtleGoto(wireTXS + distance * sin(wireRot), wireTYS + distance * cos(wireRot));
+            }
             turtleGoto(wireTXE, wireTYE);
             distance = (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE) * sin(wireRot) + (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE) * cos(wireRot);
-            if (self.wireMode == 0)
+            if (self.wireMode == 0) {
                 turtleGoto(wireTXE + distance * sin(wireRot), wireTYE + distance * cos(wireRot));
+            }
             turtleGoto(wireTXE + (sin(wireRot) * 22.5 * self.globalsize + self.wxOffE), wireTYE + (cos(wireRot) * 22.5 * self.globalsize + self.wyOffE));
             turtlePenUp();
             turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
         }
+    }
+    for (int i = 1; i < len; i += 3) {
+        self.wiring -> data[i + 2] = self.io -> data[self.wiring -> data[i].i * 3];
     }
     self.globalsize /= 0.75;
     *selfp = self;
@@ -2883,10 +2902,11 @@ void mouseTick(logicgates *selfp) {
                     list_clear(self.selected);
                     list_append(self.selected, (unitype) "null", 's');
                     if (self.mx > 168) {
-                        if (self.wireHold == 1)
+                        if (self.wireHold == 1) {
                             self.wireHold = 0;
-                        else
+                        } else {
                             self.wireHold = 1;
+                        }
                     } else {
                         if (self.mx > -220) {
                             char *holdingTemp = self.compSlots -> data[(int) round((self.mx + 245) / 48) * 2 - 1].s;
@@ -2900,8 +2920,9 @@ void mouseTick(logicgates *selfp) {
                 }
             }
         }
-        if (self.mouseType == 1 && self.mx > self.boundXmin && self.mx < self.boundXmax && self.my > self.boundYmin && self.my < self.boundYmax)
+        if (self.mouseType == 1 && self.mx > self.boundXmin && self.mx < self.boundXmax && self.my > self.boundYmin && self.my < self.boundYmax) {
             self.mouseType = 2;
+        }
         if (self.keys[2] && self.selecting == 1) { // left shift key or s key
             self.selectX2 = self.mx;
             self.selectY2 = self.my;
@@ -2917,8 +2938,9 @@ void mouseTick(logicgates *selfp) {
                     self.symax = 0;
                     self.sxmin = 0;
                     self.symin = 0;
-                    if (!(list_count(self.deleteQueue, (unitype) self.hlgcomp, 'i') > 0))
+                    if (!(list_count(self.deleteQueue, (unitype) self.hlgcomp, 'i') > 0)) {
                         list_append(self.deleteQueue, (unitype) self.hlgcomp, 'i');
+                    }
                 }
             }
         } else {
@@ -2934,20 +2956,22 @@ void mouseTick(logicgates *selfp) {
                 self.symin = 0;
             }
             if ((self.keys[1] || self.wireHold == 1) && !(self.wiringStart == 0)) {
-                if (list_count(self.selected, (unitype) self.wiringStart, 'i') > 0 || list_count(self.selected, (unitype) self.hlgcomp, 'i') > 0)
+                if (list_count(self.selected, (unitype) self.wiringStart, 'i') > 0 || list_count(self.selected, (unitype) self.hlgcomp, 'i') > 0) {
                     turtlePenColor(self.themeColors[4 + self.theme], self.themeColors[5 + self.theme], self.themeColors[6 + self.theme]);
-                else
+                } else {
                     turtlePenColor(self.themeColors[1 + self.theme], self.themeColors[2 + self.theme], self.themeColors[3 + self.theme]);
+                }
                 turtlePenSize(self.globalsize * self.scaling / 0.75);
                 if (list_count(self.selected, (unitype) self.wiringStart, 'i') > 0 && self.selecting > 2) {
                     int len = self.selected -> length;
                     for (int i = 1; i < len; i++) {
                         turtleGoto((self.positions -> data[self.selected -> data[i].i * 3 - 2].d + self.screenX) * self.globalsize, (self.positions -> data[self.selected -> data[i].i * 3 - 1].d + self.screenY) * self.globalsize);
                         turtlePenDown();
-                        if ((!(self.hlgcomp == 0 && !(self.hlgcomp == self.wiringStart))) && (self.inpComp -> data[self.wiringEnd * 3 - 1].i < 1 || (self.inpComp -> data[self.wiringEnd * 3].i < 1 && !(self.inpComp -> data[self.wiringEnd * 3 - 1].i == self.wiringStart && self.inpComp -> data[self.wiringEnd * 3 - 2].i > 1))))
+                        if ((!(self.hlgcomp == 0 && !(self.hlgcomp == self.wiringStart))) && (self.inpComp -> data[self.wiringEnd * 3 - 1].i < 1 || (self.inpComp -> data[self.wiringEnd * 3].i < 1 && !(self.inpComp -> data[self.wiringEnd * 3 - 1].i == self.wiringStart && self.inpComp -> data[self.wiringEnd * 3 - 2].i > 1)))) {
                             turtleGoto((self.positions -> data[self.hlgcomp * 3 - 2].d + self.screenX) * self.globalsize, (self.positions -> data[self.hlgcomp * 3 - 1].d + self.screenY) * self.globalsize);
-                        else
+                        } else {
                             turtleGoto(self.mx, self.my);
+                        }
                         turtlePenUp();
                     }
                 } else {
@@ -2961,11 +2985,17 @@ void mouseTick(logicgates *selfp) {
                         }
                     } else {
                         turtleGoto((self.positions -> data[self.wiringStart * 3 - 2].d + self.screenX) * self.globalsize, (self.positions -> data[self.wiringStart * 3 - 1].d + self.screenY) * self.globalsize);
+                        // if () {
+                        //     turtlePenColor();
+                        // } else {
+                        //     turtlePenColor();
+                        // }
                         turtlePenDown();
-                        if ((self.hlgcomp != 0) && (self.wiringEnd > 0) && (self.hlgcomp != self.wiringStart) && (self.inpComp -> data[self.wiringEnd * 3 - 1].i < 1 || (self.inpComp -> data[self.wiringEnd * 3].i < 1 && (self.inpComp -> data[self.wiringEnd * 3 - 1].i != self.wiringStart) && self.inpComp -> data[self.wiringEnd * 3 - 2].i > 1)))
+                        if ((self.hlgcomp != 0) && (self.wiringEnd > 0) && (self.hlgcomp != self.wiringStart) && (self.inpComp -> data[self.wiringEnd * 3 - 1].i < 1 || (self.inpComp -> data[self.wiringEnd * 3].i < 1 && (self.inpComp -> data[self.wiringEnd * 3 - 1].i != self.wiringStart) && self.inpComp -> data[self.wiringEnd * 3 - 2].i > 1))) {
                             turtleGoto((self.positions -> data[self.hlgcomp * 3 - 2].d + self.screenX) * self.globalsize, (self.positions -> data[self.hlgcomp * 3 - 1].d + self.screenY) * self.globalsize);
-                        else
+                        } else {
                             turtleGoto(self.mx, self.my);
+                        }
                         turtlePenUp();
                     }
                 }
@@ -3098,8 +3128,9 @@ void mouseTick(logicgates *selfp) {
                     list_append(wireEQueue, (unitype) self.wiringEnd, 'i');
                     int len = self.selected -> length;
                     for (int i = 1; i < len; i++) {
-                        if (!(self.wiringStart == self.selected -> data[i].i) && !(self.wiringEnd == self.selected -> data[i].i))
+                        if (!(self.wiringStart == self.selected -> data[i].i) && !(self.wiringEnd == self.selected -> data[i].i)) {
                             list_append(wireSQueue, self.selected -> data[i], 'i');
+                        }
                     }
                 } else {
                     if (list_count(self.selected, (unitype) self.hlgcomp, 'i') > 0 && self.selecting > 1) {
@@ -3179,8 +3210,9 @@ void mouseTick(logicgates *selfp) {
             self.hglmove = 0;
             self.wiringStart = 0;
             self.wiringEnd = 0;
-            if (self.keys[0])
+            if (self.keys[0]) {
                 self.keys[0] = 0;
+            }
         }
     }
     if (updateQue) {
