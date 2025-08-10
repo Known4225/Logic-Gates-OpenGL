@@ -4181,11 +4181,17 @@ int main(int argc, char *argv[]) {
         scrollTick(&self);
         turtleUpdate(); // update the screen
         end = clock();
-        if (self.defaultShape == 0 && (double) (end - start) / CLOCKS_PER_SEC > (1 / (double) tps)) {
-            lagFrames++;
-            // printf("lag: %d\n", lagFrames);
-            if (lagFrames > 120) {
-                self.defaultShape = 3; // change defaultShape to none if not able to get 60 fps, dynamically change quality
+        if (self.defaultShape == 0) {
+            if ((double) (end - start) / CLOCKS_PER_SEC > (1 / (double) tps) * 3) {
+                lagFrames++;
+                printf("lag: %d\n", lagFrames);
+                if (lagFrames > 120) {
+                    self.defaultShape = 3; // change defaultShape to none if not able to get target fps, dynamically change quality
+                }
+            } else {
+                if (lagFrames > 0) {
+                    lagFrames--;
+                }
             }
         }
         if (frame % 60 == 0) {
