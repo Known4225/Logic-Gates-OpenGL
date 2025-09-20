@@ -5,13 +5,17 @@
 ![computerMk1](images/computerMk1.png)
 
 ### Compile (windows 64 bit):
-gcc logicgates.c -L./Windows -lglfw3 -lopengl32 -lgdi32 -lglad -lole32 -luuid -DOS_WINDOWS -o logicgates.exe\
+```
+> gcc logicgates.c -L./Windows -lglfw3 -lopengl32 -lgdi32 -lglad -lole32 -luuid -DOS_WINDOWS -o logicgates.exe
+```
 Then run logicgates.exe\
 I've also included the 64-bit binary (logicgates.exe) for convenience,\
 so you can just run that without compilation if you're on windows (and on a 64 bit machine)
 
 ### Compile (linux):
-gcc logicgates.c -L./Linux -lglfw3 -ldl -lm -lX11 -lglad -lGL -lGLU -lpthread -DOS_LINUX -o logicgates.o\
+```
+$ gcc logicgates.c -L./Linux -lglfw3 -ldl -lm -lX11 -lglad -lGL -lGLU -lpthread -DOS_LINUX -o logicgates.o
+```
 Then run ./logicgates.o
 
 To load a file, type:\
