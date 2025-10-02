@@ -4160,7 +4160,6 @@ int main(int argc, char *argv[]) {
             frame = 0;
         }
         frame += 1;
-        printf("%d\n", end - start);
         while ((double) (end - start) / CLOCKS_PER_SEC < (1 / (double) tps)) {
             end = clock();
         }
