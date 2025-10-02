@@ -78,11 +78,7 @@ const char *turtleFragmentShaderSource =
     "in float textureIndex;\n"
     "out vec4 fragColor;\n"
     "void main() {\n"
-    "    if (textureIndex > 0.5) {\n"
-    "        fragColor = texture(textureImages, vec3(textureCoordFrag, textureIndex)) * shadeColor;\n"
-    "    } else {\n"
-    "        fragColor = shadeColor;\n"
-    "    }\n"
+    "     fragColor = texture(textureImages, vec3(textureCoordFrag, textureIndex)) * shadeColor + shadeColor * (1 / (1 + pow(2, 20 * textureIndex - 10)));\n"
     "}\0";
 
 // run this to set the bounds of the window in coordinates
